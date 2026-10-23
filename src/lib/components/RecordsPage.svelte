@@ -39,6 +39,18 @@
 
   onMount(() => {
     loadSales();
+
+    const handleDbUpdate = () => {
+      loadSales();
+    };
+
+    window.addEventListener('pharmacy-db-updated', handleDbUpdate);
+    window.addEventListener('focus', handleDbUpdate);
+
+    return () => {
+      window.removeEventListener('pharmacy-db-updated', handleDbUpdate);
+      window.removeEventListener('focus', handleDbUpdate);
+    };
   });
 
   function applyFilters() {
@@ -105,6 +117,7 @@
         selectedSale.status = 'Refunded';
       }
 
+      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
       await loadSales();
     } catch (err: any) {
       alert('Failed to void transaction: ' + err.message);

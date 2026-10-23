@@ -36,6 +36,18 @@
   let storePhone = $state('+880 1700-000000');
   let storeAddress = $state('Dhaka, Bangladesh');
 
+  // Font Selection State
+  let selectedFont = $state('Inter');
+  const availableFonts = [
+    { id: 'Inter', name: 'Inter (Default Modern Sans)', family: "'Inter', sans-serif" },
+    { id: 'Plus Jakarta Sans', name: 'Plus Jakarta Sans (Clean POS)', family: "'Plus Jakarta Sans', sans-serif" },
+    { id: 'Poppins', name: 'Poppins (Geometric & Bold)', family: "'Poppins', sans-serif" },
+    { id: 'Geist', name: 'Geist (Minimal Tech)', family: "'Geist', sans-serif" },
+    { id: 'Outfit', name: 'Outfit (Modern Display)', family: "'Outfit', sans-serif" },
+    { id: 'Roboto', name: 'Roboto (Google Classic)', family: "'Roboto', sans-serif" },
+    { id: 'Fira Code', name: 'Fira Code (Developer Mono)', family: "'Fira Code', monospace" },
+  ];
+
   let feedbackMsg = $state<string | null>(null);
   let isError = $state(false);
 
@@ -86,7 +98,27 @@
   onMount(() => {
     isDark = document.documentElement.classList.contains('dark');
     loadSettingsInfo();
+
+    const savedFont = localStorage.getItem('appFont');
+    if (savedFont) {
+      selectedFont = savedFont;
+      applyFontFamily(savedFont);
+    }
   });
+
+  function applyFontFamily(fontId: string) {
+    const fontObj = availableFonts.find((f) => f.id === fontId);
+    if (fontObj) {
+      document.body.style.fontFamily = fontObj.family;
+    }
+  }
+
+  function handleFontChange(fontId: string) {
+    selectedFont = fontId;
+    localStorage.setItem('appFont', fontId);
+    applyFontFamily(fontId);
+    notify(`UI Typography updated to "${fontId}"!`);
+  }
 
   function toggleTheme() {
     isDark = !isDark;
@@ -187,6 +219,7 @@
         }
       });
 
+      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
       await loadSettingsInfo();
       notify('Backup restored successfully!');
     } catch (err: any) {
@@ -252,6 +285,7 @@
       ];
 
       await db.inventory.bulkAdd(sampleItems);
+      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
       await loadSettingsInfo();
       notify('Successfully added sample medicines to inventory!');
     } catch (e: any) {
@@ -262,6 +296,7 @@
   async function clearInventoryData() {
     if (!confirm('Are you sure you want to clear all inventory stock items?')) return;
     await db.inventory.clear();
+    window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
     await loadSettingsInfo();
     notify('Local inventory cleared.');
   }
@@ -271,6 +306,7 @@
     await db.inventory.clear();
     await db.sales.clear();
     await db.heldBills.clear();
+    window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
     await loadSettingsInfo();
     notify('All local database records cleared.');
   }
@@ -393,11 +429,40 @@
             </Button>
           </div>
 
+          <!-- UI Typography Font Picker -->
+          <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-900 dark:text-slate-100">System UI Typography</span>
+              <Badge variant="outline" class="text-[10px]">Google Fonts</Badge>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-neutral-400">Choose a primary font for all headings, POS tables, and checkout screens.</p>
+
+            <div class="grid grid-cols-1 gap-2">
+              {#each availableFonts as font}
+                <button
+                  type="button"
+                  onclick={() => handleFontChange(font.id)}
+                  class={`p-2.5 rounded-lg border text-left text-xs font-medium transition-all cursor-pointer flex items-center justify-between ${
+                    selectedFont === font.id
+                      ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 ring-1 ring-emerald-500'
+                      : 'border-slate-200 dark:border-neutral-800 hover:border-slate-300 dark:hover:border-neutral-700 bg-slate-50/50 dark:bg-neutral-900/50'
+                  }`}
+                  style={`font-family: ${font.family};`}
+                >
+                  <span>{font.name}</span>
+                  {#if selectedFont === font.id}
+                    <span class="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded">Active</span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          </div>
+
           <!-- Catalog Refetch Card -->
           <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black space-y-3">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-slate-900 dark:text-slate-100">MedEx Catalog Refetch</span>
-              <Badge variant="success" class="text-[10px]">Auto Weekly Sync</Badge>
+              <Badge variant="success" class="text-[10px]">Auto Sync</Badge>
             </div>
             <p class="text-xs text-slate-500 dark:text-neutral-400">
               Last synced: <span class="font-medium text-slate-800 dark:text-slate-200">{lastRefetchText}</span>
