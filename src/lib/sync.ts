@@ -1,14 +1,11 @@
+import { writable } from 'svelte/store';
 import { db, type CatalogItem } from './db';
 
 const MEDEX_URL = 'https://raw.githubusercontent.com/29MayStudio/MedEx/refs/heads/main/list.json';
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-export interface SyncStatus {
-  isSyncing: boolean;
-  lastUpdated: string | null;
-  totalItems: number;
-  error: string | null;
-}
+export const isSyncing = writable<boolean>(false);
+export const syncProgress = writable<number>(0);
 
 export async function getLastRefetchTime(): Promise<string | null> {
   const setting = await db.settings.get('last_refetch_time');
@@ -16,18 +13,21 @@ export async function getLastRefetchTime(): Promise<string | null> {
 }
 
 export async function fetchMedExCatalog(onProgress?: (count: number) => void): Promise<{ success: boolean; count: number; error?: string }> {
+  isSyncing.set(true);
+  syncProgress.set(10);
   try {
     const response = await fetch(MEDEX_URL);
     if (!response.ok) {
       throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
     }
 
+    syncProgress.set(40);
     const data = await response.json();
     if (!Array.isArray(data)) {
       throw new Error('Invalid catalog format received from server');
     }
 
-    // Process items in batches for fast IndexedDB insertion
+    syncProgress.set(70);
     const processedItems: CatalogItem[] = data.map((item: any) => {
       const generics = Array.isArray(item.generic_names) ? item.generic_names : [];
       return {
@@ -47,6 +47,7 @@ export async function fetchMedExCatalog(onProgress?: (count: number) => void): P
       await db.settings.put({ key: 'last_refetch_time', value: nowIso });
     });
 
+    syncProgress.set(100);
     if (onProgress) {
       onProgress(processedItems.length);
     }
@@ -55,7 +56,13 @@ export async function fetchMedExCatalog(onProgress?: (count: number) => void): P
   } catch (err: any) {
     console.error('MedEx catalog fetch failed:', err);
     return { success: false, count: 0, error: err.message || 'Failed to fetch catalog' };
+  } finally {
+    isSyncing.set(false);
   }
+}
+
+export async function syncCatalogWithMedEx(manual = false): Promise<void> {
+  await fetchMedExCatalog();
 }
 
 export async function checkAndAutoSync(): Promise<void> {

@@ -17,7 +17,8 @@ export interface InventoryItem {
   power: string;
   dosage_form: string;
   manufacturer: string;
-  unit_price: number;
+  unit_price: number; // Retailer price
+  wholesale_price?: number; // Wholesale price
   stock_quantity: number;
   expiry_month: string; // e.g. "2026-12"
   added_at: string; // ISO date string
@@ -32,6 +33,7 @@ export interface CartItem {
   power: string;
   dosage_form: string;
   unit_price: number;
+  wholesale_price?: number;
   quantity: number;
   expiry_month: string;
   subtotal: number;
@@ -45,7 +47,6 @@ export interface SaleRecord {
   total_amount: number;
   discount_amount: number;
   net_amount: number;
-  payment_method: 'Cash' | 'Card' | 'Mobile Banking';
   status: 'Completed' | 'Refunded';
 }
 

@@ -23,7 +23,6 @@
 
   let searchFilter = $state('');
   let dateFilter = $state(''); // "YYYY-MM-DD"
-  let paymentMethodFilter = $state('ALL');
 
   // Selected sale modal
   let selectedSale = $state<SaleRecord | null>(null);
@@ -60,10 +59,6 @@
 
     if (dateFilter) {
       result = result.filter((s) => s.timestamp.startsWith(dateFilter));
-    }
-
-    if (paymentMethodFilter !== 'ALL') {
-      result = result.filter((s) => s.payment_method === paymentMethodFilter);
     }
 
     filteredSales = result;
@@ -119,12 +114,11 @@
   function exportCSV() {
     if (filteredSales.length === 0) return;
 
-    const headers = ['Sale Code', 'Date/Time', 'Status', 'Payment Method', 'Items Count', 'Subtotal', 'Discount', 'Net Total'];
+    const headers = ['Sale Code', 'Date/Time', 'Status', 'Items Count', 'Subtotal', 'Discount', 'Net Total'];
     const rows = filteredSales.map((s) => [
       s.sale_code,
       s.timestamp,
       s.status,
-      s.payment_method,
       s.items.length,
       s.total_amount,
       s.discount_amount,
@@ -151,10 +145,10 @@
   <div class="flex items-center justify-between">
     <div>
       <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Sales & Audit Records</h2>
-      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Comprehensive audit trail of all transactions and sales history.</p>
+      <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">Comprehensive audit trail of all transactions and sales history.</p>
     </div>
 
-    <Button variant="outline" onclick={exportCSV} class="flex items-center gap-2">
+    <Button variant="outline" onclick={exportCSV} class="flex items-center gap-2 cursor-pointer">
       <Download class="h-4 w-4" />
       <span>Export CSV</span>
     </Button>
@@ -164,7 +158,7 @@
   <Card class="p-4">
     <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
       <!-- Search Input -->
-      <div class="md:col-span-5 relative">
+      <div class="md:col-span-7 relative">
         <Search class="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
         <Input
           type="text"
@@ -175,21 +169,8 @@
       </div>
 
       <!-- Date Filter -->
-      <div class="md:col-span-3 relative">
+      <div class="md:col-span-4 relative">
         <Input type="date" bind:value={dateFilter} class="h-9 text-xs" />
-      </div>
-
-      <!-- Payment Method Filter -->
-      <div class="md:col-span-3">
-        <select
-          bind:value={paymentMethodFilter}
-          class="flex h-9 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-        >
-          <option value="ALL">All Payment Methods</option>
-          <option value="Cash">Cash Only</option>
-          <option value="Card">Card Only</option>
-          <option value="Mobile Banking">Mobile Banking</option>
-        </select>
       </div>
 
       <!-- Reset Filters Button -->
@@ -200,9 +181,8 @@
           onclick={() => {
             searchFilter = '';
             dateFilter = '';
-            paymentMethodFilter = 'ALL';
           }}
-          class="w-full h-9 text-xs"
+          class="w-full h-9 text-xs cursor-pointer"
           title="Reset Filters"
         >
           Reset
@@ -213,9 +193,9 @@
 
   <!-- Filter Summary Stats Bar -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div class="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+    <div class="p-4 rounded-xl bg-white dark:bg-black border border-slate-200 dark:border-neutral-800 flex items-center justify-between">
       <div>
-        <div class="text-xs text-slate-500">Filtered Sales Revenue</div>
+        <div class="text-xs text-slate-500 dark:text-neutral-400">Filtered Sales Revenue</div>
         <div class="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalRevenueInView)}</div>
       </div>
       <div class="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
@@ -223,9 +203,9 @@
       </div>
     </div>
 
-    <div class="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+    <div class="p-4 rounded-xl bg-white dark:bg-black border border-slate-200 dark:border-neutral-800 flex items-center justify-between">
       <div>
-        <div class="text-xs text-slate-500">Completed Transactions</div>
+        <div class="text-xs text-slate-500 dark:text-neutral-400">Completed Transactions</div>
         <div class="text-xl font-bold text-slate-900 dark:text-white">{totalCompletedCount} records</div>
       </div>
       <div class="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center">
@@ -233,9 +213,9 @@
       </div>
     </div>
 
-    <div class="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+    <div class="p-4 rounded-xl bg-white dark:bg-black border border-slate-200 dark:border-neutral-800 flex items-center justify-between">
       <div>
-        <div class="text-xs text-slate-500">Total Logged Records</div>
+        <div class="text-xs text-slate-500 dark:text-neutral-400">Total Logged Records</div>
         <div class="text-xl font-bold text-slate-900 dark:text-white">{filteredSales.length} total</div>
       </div>
       <div class="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
@@ -248,27 +228,26 @@
   <Card title="Sales History Log">
     {#if filteredSales.length === 0}
       <div class="py-16 text-center text-slate-400">
-        <Receipt class="h-12 w-12 mx-auto mb-2 text-slate-300 dark:text-slate-700 stroke-1" />
+        <Receipt class="h-12 w-12 mx-auto mb-2 text-slate-300 dark:text-neutral-700 stroke-1" />
         <p class="font-medium text-sm">No sales records found</p>
         <p class="text-xs text-slate-400 mt-1">Try adjusting search parameters or complete a new sale on POS.</p>
       </div>
     {:else}
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
-          <thead class="border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase tracking-wider text-[11px]">
+          <thead class="border-b border-slate-200 dark:border-neutral-800 text-slate-500 uppercase tracking-wider text-[11px]">
             <tr>
               <th class="pb-3 font-semibold">Sale Code</th>
               <th class="pb-3 font-semibold">Timestamp</th>
               <th class="pb-3 font-semibold">Purchased Items</th>
-              <th class="pb-3 font-semibold">Payment</th>
               <th class="pb-3 font-semibold">Status</th>
               <th class="pb-3 font-semibold text-right">Net Amount</th>
               <th class="pb-3 font-semibold text-center">Action</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody class="divide-y divide-slate-100 dark:divide-neutral-800">
             {#each filteredSales as sale}
-              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+              <tr class="hover:bg-slate-50 dark:hover:bg-neutral-900/40 transition-colors">
                 <td class="py-3.5 font-bold font-mono text-emerald-600 dark:text-emerald-400">
                   {sale.sale_code}
                 </td>
@@ -278,9 +257,6 @@
                   {#if sale.items.length > 2}
                     <span class="text-slate-400 font-normal">+{sale.items.length - 2} more</span>
                   {/if}
-                </td>
-                <td class="py-3.5">
-                  <Badge variant="secondary" class="text-[10px]">{sale.payment_method}</Badge>
                 </td>
                 <td class="py-3.5">
                   {#if sale.status === 'Completed'}
@@ -298,7 +274,7 @@
                       size="sm"
                       variant="ghost"
                       onclick={() => viewSaleDetails(sale)}
-                      class="h-7 px-2 text-slate-600 dark:text-slate-300"
+                      class="h-7 px-2 text-slate-600 dark:text-slate-300 cursor-pointer"
                       title="View Details"
                     >
                       <Eye class="h-3.5 w-3.5" />
@@ -308,7 +284,7 @@
                         size="sm"
                         variant="ghost"
                         onclick={() => voidTransaction(sale)}
-                        class="h-7 px-2 text-rose-600 hover:text-rose-700"
+                        class="h-7 px-2 text-rose-600 hover:text-rose-700 cursor-pointer"
                         title="Refund / Void Transaction"
                       >
                         <RotateCcw class="h-3.5 w-3.5" />
@@ -363,10 +339,6 @@
         <div class="flex justify-between font-bold text-sm border-t border-slate-300 pt-1 text-slate-900">
           <span>Net Total:</span>
           <span>{formatCurrency(selectedSale.net_amount)}</span>
-        </div>
-        <div class="flex justify-between text-[11px] text-slate-500 pt-1">
-          <span>Payment Method:</span>
-          <span>{selectedSale.payment_method}</span>
         </div>
       </div>
     </div>

@@ -30,7 +30,7 @@
   // Active Cart State
   let cart = $state<CartItem[]>([]);
   let discount = $state<number>(0);
-  let paymentMethod = $state<'Cash' | 'Card' | 'Mobile Banking'>('Cash');
+  let isManualDiscount = $state<boolean>(false);
 
   // Held Bills state & dialogs
   let heldBills = $state<HeldBill[]>([]);
@@ -90,9 +90,19 @@
   }
 
   $effect(() => {
-    // Re-filter when search query changes
     filterSearchResults();
   });
+
+  function calculateAutoDiscount(subtotal: number): number {
+    if (subtotal <= 50) return 0;
+    const lastDigit = Math.floor(subtotal) % 10;
+    if (lastDigit >= 1 && lastDigit <= 4) {
+      return lastDigit;
+    } else if (lastDigit >= 6 && lastDigit <= 9) {
+      return lastDigit - 5;
+    }
+    return 0;
+  }
 
   function addToCart(item: InventoryItem) {
     if (item.stock_quantity <= 0) {
@@ -116,10 +126,15 @@
         power: item.power,
         dosage_form: item.dosage_form,
         unit_price: item.unit_price,
+        wholesale_price: item.wholesale_price,
         quantity: 1,
         expiry_month: item.expiry_month,
         subtotal: item.unit_price,
       });
+    }
+
+    if (!isManualDiscount) {
+      discount = calculateAutoDiscount(subtotalAmount);
     }
   }
 
@@ -141,15 +156,34 @@
 
     cart[index].quantity = newQty;
     cart[index].subtotal = newQty * item.unit_price;
+
+    if (!isManualDiscount) {
+      discount = calculateAutoDiscount(subtotalAmount);
+    }
   }
 
   function removeFromCart(index: number) {
     cart.splice(index, 1);
+    if (!isManualDiscount) {
+      discount = calculateAutoDiscount(subtotalAmount);
+    }
   }
 
   function clearCart() {
     cart = [];
     discount = 0;
+    isManualDiscount = false;
+  }
+
+  function handleDiscountInput(e: Event) {
+    const val = Number((e.target as HTMLInputElement).value);
+    discount = isNaN(val) ? 0 : val;
+    isManualDiscount = true;
+  }
+
+  function resetAutoDiscount() {
+    isManualDiscount = false;
+    discount = calculateAutoDiscount(subtotalAmount);
   }
 
   // Calculated totals
@@ -171,11 +205,9 @@
         total_amount: subtotalAmount,
         discount_amount: discount || 0,
         net_amount: netTotalAmount,
-        payment_method: paymentMethod,
         status: 'Completed',
       };
 
-      // Save sale and update inventory stock atomically
       await db.transaction('rw', db.sales, db.inventory, async () => {
         const savedId = await db.sales.add(newSale);
         newSale.id = savedId as number;
@@ -192,7 +224,6 @@
       lastCompletedSale = newSale;
       showReceiptDialog = true;
 
-      // Reset cart
       clearCart();
       await loadInventory();
     } catch (e: any) {
@@ -235,6 +266,9 @@
     }
 
     cart = JSON.parse(JSON.stringify(heldBill.items));
+    if (!isManualDiscount) {
+      discount = calculateAutoDiscount(subtotalAmount);
+    }
     if (heldBill.id) {
       await db.heldBills.delete(heldBill.id);
       await loadHeldBills();
@@ -254,8 +288,8 @@
 </script>
 
 <div class="h-full flex flex-col overflow-hidden">
-  <!-- Top Bar / Action Summary -->
-  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between shrink-0">
+  <!-- Top Bar -->
+  <header class="bg-white dark:bg-black border-b border-slate-200 dark:border-neutral-800 px-6 py-3 flex items-center justify-between shrink-0">
     <div class="flex items-center gap-3">
       <h2 class="text-xl font-bold text-slate-900 dark:text-white">New Sale</h2>
       <Badge variant="outline" class="font-mono text-xs">Anonymous Checkout</Badge>
@@ -303,16 +337,16 @@
   <!-- Main POS Grid: Left Medicine Catalogue/Search, Right Active Cart -->
   <div class="flex-1 grid grid-cols-12 gap-0 overflow-hidden">
     <!-- Left Column: Search & Inventory Grid (7 Cols) -->
-    <div class="col-span-7 border-r border-slate-200 dark:border-slate-800 flex flex-col h-full bg-slate-50/50 dark:bg-slate-950/50 overflow-hidden">
+    <div class="col-span-7 border-r border-slate-200 dark:border-neutral-800 flex flex-col h-full bg-slate-50/50 dark:bg-black overflow-hidden">
       <!-- Search Bar Header -->
-      <div class="p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 space-y-2">
+      <div class="p-4 bg-white dark:bg-black border-b border-slate-200 dark:border-neutral-800 space-y-2">
         <div class="relative">
           <Search class="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
           <Input
             type="text"
-            placeholder="Search medicine by Generic Name (e.g. Paracetamol), Brand name, or Power..."
+            placeholder="Search medicine by Generic Name, Brand name, or Strength..."
             bind:value={searchQuery}
-            class="pl-10 h-11 text-base shadow-xs border-slate-300 dark:border-slate-700 focus:ring-emerald-500"
+            class="pl-10 h-11 text-base shadow-xs border-slate-300 dark:border-neutral-800 focus:ring-emerald-500"
           />
           {#if searchQuery}
             <button
@@ -333,7 +367,7 @@
       <div class="flex-1 overflow-y-auto p-4">
         {#if searchResults.length === 0}
           <div class="h-64 flex flex-col items-center justify-center text-center p-6 text-slate-400">
-            <Pill class="h-12 w-12 mb-3 text-slate-300 dark:text-slate-700 stroke-1" />
+            <Pill class="h-12 w-12 mb-3 text-slate-300 dark:text-neutral-700 stroke-1" />
             <p class="font-medium text-slate-600 dark:text-slate-400">No medicines found in inventory</p>
             <p class="text-xs text-slate-400 mt-1">Try searching another generic name or add medicines to inventory.</p>
           </div>
@@ -346,8 +380,8 @@
                 disabled={item.stock_quantity <= 0}
                 class={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between cursor-pointer group hover:shadow-md ${
                   item.stock_quantity <= 0
-                    ? 'bg-slate-100 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60 cursor-not-allowed'
-                    : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50'
+                    ? 'bg-slate-100 dark:bg-neutral-900/40 border-slate-200 dark:border-neutral-800 opacity-60 cursor-not-allowed'
+                    : 'bg-white dark:bg-black border-slate-200/80 dark:border-neutral-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50'
                 }`}
               >
                 <div>
@@ -355,12 +389,12 @@
                     <h4 class="font-bold text-slate-900 dark:text-slate-100 text-sm group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
                       {item.brand_name}
                     </h4>
-                    <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 shrink-0">
+                    <span class="text-[10px] font-semibold text-slate-500 dark:text-neutral-400 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-neutral-900 shrink-0">
                       {item.dosage_form}
                     </span>
                   </div>
 
-                  <p class="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 line-clamp-1">
+                  <p class="text-xs text-slate-500 dark:text-neutral-400 font-medium mt-0.5 line-clamp-1">
                     {item.power || 'N/A'}
                   </p>
 
@@ -369,7 +403,7 @@
                   </div>
                 </div>
 
-                <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                <div class="mt-3 pt-2 border-t border-slate-100 dark:border-neutral-800 flex items-center justify-between text-xs">
                   <span class="font-bold text-slate-900 dark:text-slate-100 text-sm">
                     {formatCurrency(item.unit_price)}
                   </span>
@@ -379,7 +413,7 @@
                   {:else if item.stock_quantity <= 10}
                     <Badge variant="warning" class="text-[10px]">{item.stock_quantity} left</Badge>
                   {:else}
-                    <span class="text-slate-500 dark:text-slate-400 font-medium text-[11px]">
+                    <span class="text-slate-500 dark:text-neutral-400 font-medium text-[11px]">
                       Stock: {item.stock_quantity}
                     </span>
                   {/if}
@@ -392,9 +426,9 @@
     </div>
 
     <!-- Right Column: Current Sale Cart & Quick Checkout (5 Cols) -->
-    <div class="col-span-5 flex flex-col h-full bg-white dark:bg-slate-900 overflow-hidden">
+    <div class="col-span-5 flex flex-col h-full bg-white dark:bg-black overflow-hidden">
       <!-- Cart Header -->
-      <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+      <div class="p-4 border-b border-slate-200 dark:border-neutral-800 flex items-center justify-between bg-slate-50/50 dark:bg-black">
         <div class="flex items-center gap-2">
           <ShoppingBag class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           <h3 class="font-bold text-slate-900 dark:text-slate-100">Current Order</h3>
@@ -418,19 +452,19 @@
       <div class="flex-1 overflow-y-auto p-4 space-y-2.5">
         {#if cart.length === 0}
           <div class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
-            <ShoppingBag class="h-12 w-12 mb-3 text-slate-300 dark:text-slate-700 stroke-1" />
+            <ShoppingBag class="h-12 w-12 mb-3 text-slate-300 dark:text-neutral-700 stroke-1" />
             <p class="font-medium text-slate-600 dark:text-slate-400">Cart is empty</p>
             <p class="text-xs text-slate-400 mt-1">Select medicines from the left panel to add to bill.</p>
           </div>
         {:else}
           {#each cart as item, index}
-            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/40 flex items-center justify-between gap-3">
+            <div class="p-3 rounded-xl border border-slate-200 dark:border-neutral-800 bg-slate-50/40 dark:bg-neutral-900/40 flex items-center justify-between gap-3">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">
                   <span class="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{item.brand_name}</span>
-                  <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium shrink-0">{item.power}</span>
+                  <span class="text-[11px] text-slate-500 dark:text-neutral-400 font-medium shrink-0">{item.power}</span>
                 </div>
-                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                <div class="text-[11px] text-slate-500 dark:text-neutral-400 truncate">
                   {item.generic_names[0] || 'Generic'} &bull; {formatCurrency(item.unit_price)} each
                 </div>
               </div>
@@ -440,7 +474,7 @@
                 <button
                   type="button"
                   onclick={() => updateCartQuantity(index, -1)}
-                  class="h-7 w-7 rounded-md border border-slate-300 dark:border-slate-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer"
+                  class="h-7 w-7 rounded-md border border-slate-300 dark:border-neutral-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-neutral-900 text-slate-700 dark:text-slate-300 cursor-pointer"
                 >
                   <Minus class="h-3.5 w-3.5" />
                 </button>
@@ -452,7 +486,7 @@
                 <button
                   type="button"
                   onclick={() => updateCartQuantity(index, 1)}
-                  class="h-7 w-7 rounded-md border border-slate-300 dark:border-slate-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer"
+                  class="h-7 w-7 rounded-md border border-slate-300 dark:border-neutral-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-neutral-900 text-slate-700 dark:text-slate-300 cursor-pointer"
                 >
                   <Plus class="h-3.5 w-3.5" />
                 </button>
@@ -477,48 +511,44 @@
       </div>
 
       <!-- Checkout Footer Summary -->
-      <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/90 space-y-3 shrink-0">
-        <!-- Subtotal, Discount & Payment Method -->
+      <div class="p-4 border-t border-slate-200 dark:border-neutral-800 bg-slate-50/80 dark:bg-black space-y-3 shrink-0">
+        <!-- Subtotal & Discount -->
         <div class="space-y-2 text-sm">
-          <div class="flex justify-between text-slate-600 dark:text-slate-400">
+          <div class="flex justify-between text-slate-600 dark:text-neutral-400">
             <span>Subtotal</span>
             <span class="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(subtotalAmount)}</span>
           </div>
 
-          <div class="flex items-center justify-between text-slate-600 dark:text-slate-400">
-            <span>Discount (৳)</span>
+          <div class="flex items-center justify-between text-slate-600 dark:text-neutral-400">
+            <div class="flex items-center gap-1.5">
+              <span>Discount (৳)</span>
+              {#if !isManualDiscount && subtotalAmount > 50 && discount > 0}
+                <span class="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-medium">Auto Rounded</span>
+              {/if}
+              {#if isManualDiscount}
+                <button
+                  type="button"
+                  onclick={resetAutoDiscount}
+                  class="text-[10px] text-emerald-600 hover:underline cursor-pointer"
+                >
+                  Auto-fill
+                </button>
+              {/if}
+            </div>
             <div class="w-28">
               <Input
                 type="number"
                 min="0"
                 step="1"
                 placeholder="0"
-                bind:value={discount}
-                class="h-8 text-right font-medium text-sm py-0"
+                value={discount}
+                oninput={handleDiscountInput}
+                class="h-8 text-right font-medium text-sm py-0 dark:border-neutral-800"
               />
             </div>
           </div>
 
-          <div class="flex items-center justify-between text-slate-600 dark:text-slate-400 pt-1">
-            <span>Payment Method</span>
-            <div class="flex gap-1.5">
-              {#each ['Cash', 'Card', 'Mobile Banking'] as method}
-                <button
-                  type="button"
-                  onclick={() => (paymentMethod = method as any)}
-                  class={`px-2.5 py-1 text-xs rounded-md font-medium border transition-colors cursor-pointer ${
-                    paymentMethod === method
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  {method}
-                </button>
-              {/each}
-            </div>
-          </div>
-
-          <div class="flex justify-between items-center text-lg font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-800">
+          <div class="flex justify-between items-center text-lg font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-neutral-800">
             <span>Net Payable</span>
             <span class="text-xl text-emerald-600 dark:text-emerald-400">{formatCurrency(netTotalAmount)}</span>
           </div>
@@ -530,7 +560,7 @@
           size="lg"
           disabled={cart.length === 0}
           onclick={completeCheckout}
-          class="w-full h-12 text-base font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+          class="w-full h-12 text-base font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 cursor-pointer"
         >
           <CheckCircle2 class="h-5 w-5" />
           <span>Complete Sale ({formatCurrency(netTotalAmount)})</span>
@@ -548,7 +578,7 @@
       <Input id="hold-note-input" placeholder="e.g. Desk 2 / Waiting for doctor note" bind:value={holdNote} />
     </div>
 
-    <div class="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+    <div class="bg-slate-50 dark:bg-neutral-900 p-3 rounded-lg border border-slate-200 dark:border-neutral-800 text-xs space-y-1">
       <div class="flex justify-between font-medium">
         <span>Cart Items:</span>
         <span>{cart.reduce((s, i) => s + i.quantity, 0)} items</span>
@@ -570,13 +600,13 @@
 <Dialog open={showHeldBillsListDialog} onclose={() => (showHeldBillsListDialog = false)} title="Held Bills List" description="Resume or manage current held sales bills." maxWidth="max-w-2xl">
   {#if heldBills.length === 0}
     <div class="py-12 text-center text-slate-400">
-      <PauseCircle class="h-12 w-12 mx-auto mb-2 text-slate-300 dark:text-slate-700 stroke-1" />
+      <PauseCircle class="h-12 w-12 mx-auto mb-2 text-slate-300 dark:text-neutral-700 stroke-1" />
       <p class="font-medium">No bills on hold</p>
     </div>
   {:else}
     <div class="space-y-3 py-2">
       {#each heldBills as bill}
-        <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 flex items-center justify-between gap-4">
+        <div class="p-3.5 rounded-xl border border-slate-200 dark:border-neutral-800 bg-slate-50/50 dark:bg-neutral-900/50 flex items-center justify-between gap-4">
           <div>
             <div class="flex items-center gap-2">
               <span class="font-bold text-sm font-mono text-emerald-600 dark:text-emerald-400">{bill.hold_code}</span>
@@ -646,10 +676,6 @@
         <div class="flex justify-between font-bold text-sm border-t border-slate-300 pt-1 text-slate-900">
           <span>Net Total:</span>
           <span>{formatCurrency(lastCompletedSale.net_amount)}</span>
-        </div>
-        <div class="flex justify-between text-[11px] text-slate-500 pt-1">
-          <span>Paid Via:</span>
-          <span>{lastCompletedSale.payment_method}</span>
         </div>
       </div>
 
