@@ -72,6 +72,19 @@
   onMount(() => {
     loadInventory();
     loadHeldBills();
+
+    const handleDbUpdate = () => {
+      loadInventory();
+      loadHeldBills();
+    };
+
+    window.addEventListener('pharmacy-db-updated', handleDbUpdate);
+    window.addEventListener('focus', handleDbUpdate);
+
+    return () => {
+      window.removeEventListener('pharmacy-db-updated', handleDbUpdate);
+      window.removeEventListener('focus', handleDbUpdate);
+    };
   });
 
   function filterSearchResults() {
@@ -186,9 +199,16 @@
     discount = calculateAutoDiscount(subtotalAmount);
   }
 
-  // Calculated totals
+  // Calculated totals & live profit evaluation
   let subtotalAmount = $derived(cart.reduce((sum, item) => sum + item.subtotal, 0));
   let netTotalAmount = $derived(Math.max(0, subtotalAmount - (discount || 0)));
+  let totalWholesaleCost = $derived(
+    cart.reduce((sum, item) => sum + (item.wholesale_price ?? item.unit_price) * item.quantity, 0)
+  );
+  let saleProfit = $derived(netTotalAmount - totalWholesaleCost);
+  let saleMarginPercent = $derived(
+    netTotalAmount > 0 ? (saleProfit / netTotalAmount) * 100 : 0
+  );
 
   // Checkout process
   async function completeCheckout() {
@@ -224,6 +244,8 @@
       lastCompletedSale = newSale;
       showReceiptDialog = true;
 
+      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
+
       clearCart();
       await loadInventory();
     } catch (e: any) {
@@ -247,6 +269,7 @@
       };
 
       await db.heldBills.add(newHold);
+      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
       await loadHeldBills();
 
       clearCart();
@@ -271,6 +294,7 @@
     }
     if (heldBill.id) {
       await db.heldBills.delete(heldBill.id);
+      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
       await loadHeldBills();
     }
     showHeldBillsListDialog = false;
@@ -279,6 +303,7 @@
 
   async function deleteHeldBill(id: number) {
     await db.heldBills.delete(id);
+    window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
     await loadHeldBills();
   }
 
@@ -547,6 +572,24 @@
               />
             </div>
           </div>
+
+          <!-- Live Estimated Profit & Margin Section -->
+          {#if cart.length > 0}
+            <div class="p-2.5 rounded-lg border bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 space-y-1">
+              <div class="flex justify-between items-center text-xs">
+                <span class="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1">
+                  Estimated Sale Profit
+                </span>
+                <span class={`font-mono font-bold text-sm ${saleProfit >= 0 ? 'text-teal-700 dark:text-teal-300' : 'text-rose-600 dark:text-rose-400'}`}>
+                  {formatCurrency(saleProfit)}
+                </span>
+              </div>
+              <div class="flex justify-between items-center text-[11px] text-slate-500 dark:text-neutral-400">
+                <span>Wholesale Cost: <strong class="font-mono text-slate-700 dark:text-slate-300">{formatCurrency(totalWholesaleCost)}</strong></span>
+                <span class="font-mono font-semibold text-emerald-700 dark:text-emerald-400">Margin: {saleMarginPercent.toFixed(1)}%</span>
+              </div>
+            </div>
+          {/if}
 
           <div class="flex justify-between items-center text-lg font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-neutral-800">
             <span>Net Payable</span>

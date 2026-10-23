@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Layout from './lib/components/Layout.svelte';
   import SalePage from './lib/components/SalePage.svelte';
   import DashboardPage from './lib/components/DashboardPage.svelte';
@@ -7,6 +8,22 @@
   import SettingsPage from './lib/components/SettingsPage.svelte';
 
   let activeTab = $state('sale');
+
+  onMount(() => {
+    const fontMap: Record<string, string> = {
+      'Inter': "'Inter', sans-serif",
+      'Plus Jakarta Sans': "'Plus Jakarta Sans', sans-serif",
+      'Poppins': "'Poppins', sans-serif",
+      'Geist': "'Geist', sans-serif",
+      'Outfit': "'Outfit', sans-serif",
+      'Roboto': "'Roboto', sans-serif",
+      'Fira Code': "'Fira Code', monospace",
+    };
+    const savedFont = localStorage.getItem('appFont');
+    if (savedFont && fontMap[savedFont]) {
+      document.body.style.fontFamily = fontMap[savedFont];
+    }
+  });
 </script>
 
 <Layout bind:activeTab>

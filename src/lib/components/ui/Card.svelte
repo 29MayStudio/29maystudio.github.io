@@ -19,7 +19,7 @@
   }: Props = $props();
 </script>
 
-<div class={cn('rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden text-slate-900 dark:text-slate-100', className)}>
+<div class={cn('rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black shadow-xs transition-all duration-200 card-hover-lift overflow-hidden text-slate-900 dark:text-slate-100', className)}>
   {#if title || description || headerAction}
     <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
       <div>

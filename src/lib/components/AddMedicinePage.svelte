@@ -117,7 +117,10 @@
         catalog_id: selectedCatalogItem.id,
       };
 
-      await db.inventory.add(newItem);
+      const cleanItem = JSON.parse(JSON.stringify(newItem));
+      await db.inventory.add(cleanItem);
+
+      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
 
       showNotification(true, `Successfully added "${newItem.brand_name}" (${newItem.power}) to inventory!`);
 
@@ -168,7 +171,10 @@
         source: 'manual',
       };
 
-      await db.inventory.add(newItem);
+      const cleanItem = JSON.parse(JSON.stringify(newItem));
+      await db.inventory.add(cleanItem);
+
+      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
 
       showNotification(true, `Successfully added "${newItem.brand_name}" to inventory manually!`);
 
