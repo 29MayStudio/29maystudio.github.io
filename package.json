@@ -1,0 +1,31 @@
+{
+  "name": "halal-pharmacy",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/node": "^24.19.2",
+    "bits-ui": "^2.20.2",
+    "clsx": "^2.1.1",
+    "dexie": "^4.4.6",
+    "lucide-svelte": "^1.0.1",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.7",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.4"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^1.61.0"
+  }
+}
