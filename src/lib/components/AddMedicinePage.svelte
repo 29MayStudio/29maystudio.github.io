@@ -22,17 +22,19 @@
   let selectedCatalogItem = $state<CatalogItem | null>(null);
 
   let autoPower = $state('');
-  let autoUnitPrice = $state<number | ''>('');
+  let autoWholesalePrice = $state<number | ''>('');
+  let autoUnitPrice = $state<number | ''>(''); // Retailer price
   let autoQuantity = $state<number | ''>('');
   let autoExpiryMonth = $state(''); // "YYYY-MM"
 
   // Manual Mode State
   let manualBrandName = $state('');
-  let manualGenericName = $state(''); // Comma separated string or single
+  let manualGenericName = $state('');
   let manualPower = $state('');
   let manualDosageForm = $state('Tablet');
   let manualManufacturer = $state('');
-  let manualUnitPrice = $state<number | ''>('');
+  let manualWholesalePrice = $state<number | ''>('');
+  let manualUnitPrice = $state<number | ''>(''); // Retailer price
   let manualQuantity = $state<number | ''>('');
   let manualExpiryMonth = $state('');
 
@@ -52,7 +54,7 @@
     }
   }
 
-  // Catalog search effect
+  // Catalog search effect - safe in-memory filtering
   async function searchCatalog() {
     if (!catalogSearchQuery.trim()) {
       catalogResults = [];
@@ -60,21 +62,18 @@
     }
     const q = catalogSearchQuery.toLowerCase().trim();
     try {
-      const matches = await db.catalog
-        .where('generic_search_string')
-        .startsWithIgnoreCase(q)
-        .or('brand_name')
-        .startsWithIgnoreCase(q)
-        .limit(20)
-        .toArray();
-
-      catalogResults = matches;
-    } catch (e) {
-      // Fallback in-memory search if index query behaves strictly
-      const all = await db.catalog.limit(100).toArray();
-      catalogResults = all
-        .filter((c) => c.brand_name.toLowerCase().includes(q) || c.generic_search_string.includes(q))
+      const allCatalog = await db.catalog.toArray();
+      catalogResults = allCatalog
+        .filter((c) => {
+          const brandMatch = c.brand_name ? c.brand_name.toLowerCase().includes(q) : false;
+          const genericStrMatch = c.generic_search_string ? c.generic_search_string.toLowerCase().includes(q) : false;
+          const genericNamesMatch = Array.isArray(c.generic_names) && c.generic_names.some((g) => g.toLowerCase().includes(q));
+          return brandMatch || genericStrMatch || genericNamesMatch;
+        })
         .slice(0, 20);
+    } catch (e: any) {
+      console.error('Catalog search error:', e);
+      catalogResults = [];
     }
   }
 
@@ -94,7 +93,7 @@
       return;
     }
     if (!autoUnitPrice || Number(autoUnitPrice) <= 0) {
-      showNotification(false, 'Please enter a valid unit price.');
+      showNotification(false, 'Please enter a valid retailer unit price.');
       return;
     }
     if (!autoQuantity || Number(autoQuantity) <= 0) {
@@ -105,10 +104,11 @@
     try {
       const newItem: InventoryItem = {
         brand_name: selectedCatalogItem.brand_name,
-        generic_names: selectedCatalogItem.generic_names,
-        power: autoPower || selectedCatalogItem.power,
-        dosage_form: selectedCatalogItem.dosage_form,
-        manufacturer: selectedCatalogItem.manufacturer,
+        generic_names: selectedCatalogItem.generic_names || ['General Medicine'],
+        power: autoPower || selectedCatalogItem.power || '',
+        dosage_form: selectedCatalogItem.dosage_form || 'Tablet',
+        manufacturer: selectedCatalogItem.manufacturer || 'Unknown',
+        wholesale_price: autoWholesalePrice ? Number(autoWholesalePrice) : Number(autoUnitPrice),
         unit_price: Number(autoUnitPrice),
         stock_quantity: Number(autoQuantity),
         expiry_month: autoExpiryMonth || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 7),
@@ -121,10 +121,10 @@
 
       showNotification(true, `Successfully added "${newItem.brand_name}" (${newItem.power}) to inventory!`);
 
-      // Reset auto fields
       selectedCatalogItem = null;
       catalogSearchQuery = '';
       autoPower = '';
+      autoWholesalePrice = '';
       autoUnitPrice = '';
       autoQuantity = '';
       autoExpiryMonth = '';
@@ -140,7 +140,7 @@
       return;
     }
     if (!manualUnitPrice || Number(manualUnitPrice) <= 0) {
-      showNotification(false, 'Please enter a valid unit price.');
+      showNotification(false, 'Please enter a valid retailer unit price.');
       return;
     }
     if (!manualQuantity || Number(manualQuantity) <= 0) {
@@ -160,6 +160,7 @@
         power: manualPower.trim() || 'N/A',
         dosage_form: manualDosageForm.trim() || 'Tablet',
         manufacturer: manualManufacturer.trim() || 'Custom Manufacturer',
+        wholesale_price: manualWholesalePrice ? Number(manualWholesalePrice) : Number(manualUnitPrice),
         unit_price: Number(manualUnitPrice),
         stock_quantity: Number(manualQuantity),
         expiry_month: manualExpiryMonth || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 7),
@@ -171,12 +172,12 @@
 
       showNotification(true, `Successfully added "${newItem.brand_name}" to inventory manually!`);
 
-      // Reset manual fields
       manualBrandName = '';
       manualGenericName = '';
       manualPower = '';
       manualDosageForm = 'Tablet';
       manualManufacturer = '';
+      manualWholesalePrice = '';
       manualUnitPrice = '';
       manualQuantity = '';
       manualExpiryMonth = '';
@@ -191,18 +192,18 @@
   <div class="flex items-center justify-between">
     <div>
       <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Add Medicine</h2>
-      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Add new stock entries using MedEx catalogue or manual input.</p>
+      <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">Add new stock entries using MedEx catalogue or manual input.</p>
     </div>
 
     <!-- Toggle Mode Switch -->
-    <div class="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl">
+    <div class="flex bg-slate-200 dark:bg-neutral-900 p-1 rounded-xl">
       <button
         type="button"
         onclick={() => (mode = 'auto')}
         class={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
           mode === 'auto'
-            ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            ? 'bg-white dark:bg-black text-emerald-600 dark:text-emerald-400 shadow-sm'
+            : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900'
         }`}
       >
         <Sparkles class="h-4 w-4" />
@@ -214,8 +215,8 @@
         onclick={() => (mode = 'manual')}
         class={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
           mode === 'manual'
-            ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            ? 'bg-white dark:bg-black text-emerald-600 dark:text-emerald-400 shadow-sm'
+            : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900'
         }`}
       >
         <Edit3 class="h-4 w-4" />
@@ -270,7 +271,7 @@
                     class={`w-full p-3 rounded-lg border text-left transition-all flex items-center justify-between cursor-pointer ${
                       selectedCatalogItem?.id === item.id
                         ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 ring-1 ring-emerald-500'
-                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                        : 'border-slate-200 dark:border-neutral-800 hover:border-slate-300 dark:hover:border-neutral-700 bg-white dark:bg-black'
                     }`}
                   >
                     <div>
@@ -279,7 +280,7 @@
                         <span class="text-[11px] text-slate-500 font-medium">({item.power})</span>
                       </div>
                       <div class="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
-                        {item.generic_names.join(', ')}
+                        {Array.isArray(item.generic_names) ? item.generic_names.join(', ') : item.generic_names}
                       </div>
                       <div class="text-[10px] text-slate-400 mt-0.5">{item.manufacturer} &bull; {item.dosage_form}</div>
                     </div>
@@ -291,7 +292,7 @@
                 {/each}
               {:else}
                 <div class="p-8 text-center text-slate-400 text-xs space-y-1">
-                  <Pill class="h-8 w-8 mx-auto mb-1 text-slate-300 dark:text-slate-700 stroke-1" />
+                  <Pill class="h-8 w-8 mx-auto mb-1 text-slate-300 dark:text-neutral-700 stroke-1" />
                   <p>Type medicine name above to search MedEx database.</p>
                 </div>
               {/if}
@@ -302,7 +303,7 @@
 
       <!-- Right Column: Auto Details Input Form (5 Cols) -->
       <div class="lg:col-span-5">
-        <Card title="Stock Details" description="Provide pricing, strength, expiry and stock quantity">
+        <Card title="Stock Details" description="Provide wholesale & retailer pricing, strength, expiry and stock quantity">
           {#if !selectedCatalogItem}
             <div class="py-16 text-center text-slate-400 space-y-2">
               <Sparkles class="h-10 w-10 mx-auto text-emerald-500 stroke-1" />
@@ -315,7 +316,7 @@
               <div class="p-3 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-1">
                 <span class="text-[10px] uppercase tracking-wider font-bold text-emerald-800 dark:text-emerald-400">Selected Medicine</span>
                 <h4 class="font-bold text-base text-slate-900 dark:text-white">{selectedCatalogItem.brand_name}</h4>
-                <p class="text-xs text-slate-600 dark:text-slate-300">{selectedCatalogItem.generic_names.join(', ')}</p>
+                <p class="text-xs text-slate-600 dark:text-slate-300">{Array.isArray(selectedCatalogItem.generic_names) ? selectedCatalogItem.generic_names.join(', ') : selectedCatalogItem.generic_names}</p>
                 <p class="text-[11px] text-slate-500">{selectedCatalogItem.manufacturer} &bull; {selectedCatalogItem.dosage_form}</p>
               </div>
 
@@ -324,9 +325,16 @@
                 <Input id="auto-power-input" placeholder="e.g. 500mg" bind:value={autoPower} />
               </div>
 
-              <div>
-                <label for="auto-price-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Unit Selling Price (৳) *</label>
-                <Input id="auto-price-input" type="number" step="0.01" min="0" placeholder="e.g. 12.50" bind:value={autoUnitPrice} required />
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label for="auto-wholesale-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Wholesale Price (৳)</label>
+                  <Input id="auto-wholesale-input" type="number" step="0.01" min="0" placeholder="Cost price" bind:value={autoWholesalePrice} />
+                </div>
+
+                <div>
+                  <label for="auto-price-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Retailer Price (৳) *</label>
+                  <Input id="auto-price-input" type="number" step="0.01" min="0" placeholder="Selling price" bind:value={autoUnitPrice} required />
+                </div>
               </div>
 
               <div>
@@ -339,7 +347,7 @@
                 <Input id="auto-expiry-input" type="month" bind:value={autoExpiryMonth} />
               </div>
 
-              <Button type="submit" variant="default" size="lg" class="w-full font-bold flex items-center justify-center gap-2 mt-2">
+              <Button type="submit" variant="default" size="lg" class="w-full font-bold flex items-center justify-center gap-2 mt-2 cursor-pointer">
                 <Plus class="h-5 w-5" />
                 <span>Save to Inventory</span>
               </Button>
@@ -350,7 +358,7 @@
     </div>
   {:else}
     <!-- Manual Mode View -->
-    <Card title="Manual Medicine Registration" description="Enter medicine details manually without MedEx catalogue" class="max-w-3xl mx-auto">
+    <Card title="Manual Medicine Registration" description="Enter medicine details manually with Wholesale & Retailer prices" class="max-w-3xl mx-auto">
       <form onsubmit={handleManualSubmit} class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -384,8 +392,13 @@
           </div>
 
           <div>
-            <label for="manual-price-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Unit Price (৳) *</label>
-            <Input id="manual-price-input" type="number" step="0.01" min="0" placeholder="e.g. 15.00" bind:value={manualUnitPrice} required />
+            <label for="manual-wholesale-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Wholesale Price (৳)</label>
+            <Input id="manual-wholesale-input" type="number" step="0.01" min="0" placeholder="e.g. 10.00" bind:value={manualWholesalePrice} />
+          </div>
+
+          <div>
+            <label for="manual-price-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Retailer Price (৳) *</label>
+            <Input id="manual-price-input" type="number" step="0.01" min="0" placeholder="e.g. 12.50" bind:value={manualUnitPrice} required />
           </div>
 
           <div>
@@ -394,8 +407,8 @@
           </div>
         </div>
 
-        <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-          <Button type="submit" variant="default" size="lg" class="px-8 font-bold flex items-center gap-2">
+        <div class="pt-4 border-t border-slate-200 dark:border-neutral-800 flex justify-end">
+          <Button type="submit" variant="default" size="lg" class="px-8 font-bold flex items-center gap-2 cursor-pointer">
             <Plus class="h-5 w-5" />
             <span>Add Medicine to Inventory</span>
           </Button>

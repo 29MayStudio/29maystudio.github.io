@@ -10,15 +10,19 @@
 </script>
 
 <Layout bind:activeTab>
-  {#if activeTab === 'sale'}
+  <div class={activeTab === 'sale' ? 'h-full flex flex-col' : 'hidden'}>
     <SalePage />
-  {:else if activeTab === 'dashboard'}
+  </div>
+  <div class={activeTab === 'dashboard' ? 'h-full flex flex-col' : 'hidden'}>
     <DashboardPage />
-  {:else if activeTab === 'add-medicine'}
+  </div>
+  <div class={activeTab === 'add-medicine' ? 'h-full flex flex-col' : 'hidden'}>
     <AddMedicinePage />
-  {:else if activeTab === 'records'}
+  </div>
+  <div class={activeTab === 'records' ? 'h-full flex flex-col' : 'hidden'}>
     <RecordsPage />
-  {:else if activeTab === 'settings'}
+  </div>
+  <div class={activeTab === 'settings' ? 'h-full flex flex-col' : 'hidden'}>
     <SettingsPage />
-  {/if}
+  </div>
 </Layout>
