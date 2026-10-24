@@ -314,7 +314,7 @@
 
 <div class="h-full flex flex-col overflow-hidden">
   <!-- Top Bar -->
-  <header class="bg-white dark:bg-black border-b border-slate-200 dark:border-neutral-800 px-6 py-3 flex items-center justify-between shrink-0">
+  <header class="bg-white dark:bg-black border-b border-slate-200 dark:border-neutral-800 px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-2 shrink-0">
     <div class="flex items-center gap-3">
       <h2 class="text-xl font-bold text-slate-900 dark:text-white">New Sale</h2>
       <Badge variant="outline" class="font-mono text-xs">Anonymous Checkout</Badge>
@@ -360,9 +360,9 @@
   {/if}
 
   <!-- Main POS Grid: Left Medicine Catalogue/Search, Right Active Cart -->
-  <div class="flex-1 grid grid-cols-12 gap-0 overflow-hidden">
-    <!-- Left Column: Search & Inventory Grid (7 Cols) -->
-    <div class="col-span-7 border-r border-slate-200 dark:border-neutral-800 flex flex-col h-full bg-slate-50/50 dark:bg-black overflow-hidden">
+  <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden min-h-0">
+    <!-- Left Column: Search & Inventory Grid (7 Cols on LG, full on small) -->
+    <div class="col-span-1 lg:col-span-7 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-neutral-800 flex flex-col min-h-[400px] lg:h-full bg-slate-50/50 dark:bg-black overflow-hidden">
       <!-- Search Bar Header -->
       <div class="p-4 bg-white dark:bg-black border-b border-slate-200 dark:border-neutral-800 space-y-2">
         <div class="relative">
@@ -397,7 +397,7 @@
             <p class="text-xs text-slate-400 mt-1">Try searching another generic name or add medicines to inventory.</p>
           </div>
         {:else}
-          <div class="grid grid-cols-2 xl:grid-cols-3 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {#each searchResults as item}
               <button
                 type="button"
@@ -450,8 +450,8 @@
       </div>
     </div>
 
-    <!-- Right Column: Current Sale Cart & Quick Checkout (5 Cols) -->
-    <div class="col-span-5 flex flex-col h-full bg-white dark:bg-black overflow-hidden">
+    <!-- Right Column: Current Sale Cart & Quick Checkout (5 Cols on LG, full on small) -->
+    <div class="col-span-1 lg:col-span-5 flex flex-col min-h-[450px] lg:h-full bg-white dark:bg-black overflow-hidden">
       <!-- Cart Header -->
       <div class="p-4 border-b border-slate-200 dark:border-neutral-800 flex items-center justify-between bg-slate-50/50 dark:bg-black">
         <div class="flex items-center gap-2">

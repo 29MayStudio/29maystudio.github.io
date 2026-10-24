@@ -157,9 +157,9 @@
 
 <div class="h-full flex flex-col overflow-y-auto p-4 md:p-6 space-y-4">
   <!-- Top Header Bar -->
-  <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-neutral-800">
+  <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-neutral-800">
     <div>
-      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex flex-wrap items-center gap-2">
         <span>Pharmacy Analytics & Operations</span>
         <Badge variant="success" class="text-[10px] font-mono">Live Sync</Badge>
       </h2>
@@ -167,7 +167,7 @@
     </div>
 
     <div class="flex items-center gap-2">
-      <div class="text-right hidden sm:block">
+      <div class="text-left sm:text-right">
         <div class="text-xs font-bold text-slate-900 dark:text-slate-100">Stock Valuation</div>
         <div class="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-semibold">{formatCurrency(totalInventoryValue)}</div>
       </div>
@@ -175,7 +175,7 @@
   </div>
 
   <!-- Row 1: Compact 6-KPI Header Grid -->
-  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
     <!-- Today Revenue -->
     <div class="p-3 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black flex flex-col justify-between shadow-xs">
       <div class="flex items-center justify-between">

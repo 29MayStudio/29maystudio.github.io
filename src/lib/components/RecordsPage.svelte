@@ -153,15 +153,15 @@
   }
 </script>
 
-<div class="h-full flex flex-col overflow-y-auto p-6 space-y-6">
+<div class="h-full flex flex-col overflow-y-auto p-4 md:p-6 space-y-6">
   <!-- Header Title -->
-  <div class="flex items-center justify-between">
+  <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Sales & Audit Records</h2>
       <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">Comprehensive audit trail of all transactions and sales history.</p>
     </div>
 
-    <Button variant="outline" onclick={exportCSV} class="flex items-center gap-2 cursor-pointer">
+    <Button variant="outline" onclick={exportCSV} class="flex items-center gap-2 cursor-pointer shrink-0">
       <Download class="h-4 w-4" />
       <span>Export CSV</span>
     </Button>

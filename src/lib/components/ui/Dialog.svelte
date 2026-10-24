@@ -42,7 +42,7 @@
     <!-- Modal content -->
     <div
       class={cn(
-        'relative w-full rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-xl transition-all my-8 text-slate-900 dark:text-slate-100',
+        'relative w-full max-h-[90vh] flex flex-col rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-xl transition-all my-auto text-slate-900 dark:text-slate-100',
         maxWidth
       )}
       onclick={(e) => e.stopPropagation()}
