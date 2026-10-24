@@ -174,96 +174,108 @@
     </div>
   </div>
 
-  <!-- Row 1: Compact 6-KPI Header Grid -->
+  <!-- Row 1: Colorful 6-KPI Header Grid -->
   <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-    <!-- Today Revenue -->
-    <div class="p-3 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black flex flex-col justify-between shadow-xs">
+    <!-- Today Revenue Tile (Emerald) -->
+    <div class="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/20 flex flex-col justify-between shadow-xs hover:shadow-md transition-all">
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400">Today Revenue</span>
-        <DollarSign class="h-4 w-4 text-emerald-500 shrink-0" />
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">Today Revenue</span>
+        <div class="p-1.5 rounded-lg bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+          <DollarSign class="h-4 w-4 shrink-0" />
+        </div>
       </div>
       <div class="mt-2">
-        <div class="text-lg font-bold text-slate-900 dark:text-white font-mono">{formatCurrency(todayRevenue)}</div>
-        <div class="text-[10px] text-slate-500 dark:text-neutral-400 flex items-center justify-between mt-0.5">
+        <div class="text-lg font-bold text-emerald-950 dark:text-emerald-100 font-mono">{formatCurrency(todayRevenue)}</div>
+        <div class="text-[10px] text-emerald-700 dark:text-emerald-400 flex items-center justify-between mt-0.5">
           <span>{todaySalesCount} sales</span>
-          <span class="text-emerald-600 dark:text-emerald-400 font-medium">Avg {formatCurrency(todayAvgBasket)}</span>
+          <span class="font-semibold">Avg {formatCurrency(todayAvgBasket)}</span>
         </div>
       </div>
     </div>
 
-    <!-- Wholesale Cost -->
-    <div class="p-3 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black flex flex-col justify-between shadow-xs">
+    <!-- Wholesale Cost Tile (Blue) -->
+    <div class="p-3 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20 flex flex-col justify-between shadow-xs hover:shadow-md transition-all">
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400">Wholesale Cost</span>
-        <ShoppingBag class="h-4 w-4 text-blue-500 shrink-0" />
+        <span class="text-[10px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300">Wholesale Cost</span>
+        <div class="p-1.5 rounded-lg bg-blue-200/60 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+          <ShoppingBag class="h-4 w-4 shrink-0" />
+        </div>
       </div>
       <div class="mt-2">
-        <div class="text-lg font-bold text-slate-900 dark:text-white font-mono">{formatCurrency(todayWholesaleCost)}</div>
-        <div class="text-[10px] text-slate-500 dark:text-neutral-400 mt-0.5">
+        <div class="text-lg font-bold text-blue-950 dark:text-blue-100 font-mono">{formatCurrency(todayWholesaleCost)}</div>
+        <div class="text-[10px] text-blue-700 dark:text-blue-400 mt-0.5">
           {totalItemsSoldToday} units sold today
         </div>
       </div>
     </div>
 
-    <!-- Net Profit Today -->
-    <div class="p-3 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black flex flex-col justify-between shadow-xs">
+    <!-- Net Profit Today Tile (Teal) -->
+    <div class="p-3 rounded-xl border border-teal-200 dark:border-teal-900/60 bg-gradient-to-br from-teal-50 to-teal-100/50 dark:from-teal-950/40 dark:to-teal-900/20 flex flex-col justify-between shadow-xs hover:shadow-md transition-all">
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400">Net Profit Today</span>
-        <PiggyBank class="h-4 w-4 text-teal-500 shrink-0" />
+        <span class="text-[10px] font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">Net Profit Today</span>
+        <div class="p-1.5 rounded-lg bg-teal-200/60 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300">
+          <PiggyBank class="h-4 w-4 shrink-0" />
+        </div>
       </div>
       <div class="mt-2">
-        <div class={`text-lg font-bold font-mono ${todayProfit >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-rose-600'}`}>
+        <div class={`text-lg font-bold font-mono ${todayProfit >= 0 ? 'text-teal-950 dark:text-teal-100' : 'text-rose-600 dark:text-rose-400'}`}>
           {formatCurrency(todayProfit)}
         </div>
-        <div class="text-[10px] text-slate-500 dark:text-neutral-400 mt-0.5">
+        <div class="text-[10px] text-teal-700 dark:text-teal-400 mt-0.5">
           After {formatCurrency(todayDiscountTotal)} discounts
         </div>
       </div>
     </div>
 
-    <!-- Profit Margin % -->
-    <div class="p-3 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black flex flex-col justify-between shadow-xs">
+    <!-- Profit Margin % Tile (Indigo) -->
+    <div class="p-3 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50 to-indigo-100/50 dark:from-indigo-950/40 dark:to-indigo-900/20 flex flex-col justify-between shadow-xs hover:shadow-md transition-all">
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400">Margin %</span>
-        <Percent class="h-4 w-4 text-indigo-500 shrink-0" />
+        <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-800 dark:text-indigo-300">Margin %</span>
+        <div class="p-1.5 rounded-lg bg-indigo-200/60 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+          <Percent class="h-4 w-4 shrink-0" />
+        </div>
       </div>
       <div class="mt-2">
-        <div class="text-lg font-bold text-slate-900 dark:text-white font-mono">
+        <div class="text-lg font-bold text-indigo-950 dark:text-indigo-100 font-mono">
           {todayProfitMargin.toFixed(1)}%
         </div>
-        <div class="text-[10px] text-slate-500 dark:text-neutral-400 mt-0.5">
+        <div class="text-[10px] text-indigo-700 dark:text-indigo-400 mt-0.5">
           Lifetime: {formatCurrency(lifetimeProfit)}
         </div>
       </div>
     </div>
 
-    <!-- Active Catalog & Stock -->
-    <div class="p-3 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black flex flex-col justify-between shadow-xs">
+    <!-- Inventory Items Tile (Purple) -->
+    <div class="p-3 rounded-xl border border-purple-200 dark:border-purple-900/60 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/40 dark:to-purple-900/20 flex flex-col justify-between shadow-xs hover:shadow-md transition-all">
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400">Inventory Items</span>
-        <Package class="h-4 w-4 text-purple-500 shrink-0" />
+        <span class="text-[10px] font-bold uppercase tracking-wider text-purple-800 dark:text-purple-300">Inventory Items</span>
+        <div class="p-1.5 rounded-lg bg-purple-200/60 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+          <Package class="h-4 w-4 shrink-0" />
+        </div>
       </div>
       <div class="mt-2">
-        <div class="text-lg font-bold text-slate-900 dark:text-white font-mono">{totalInventoryCount} items</div>
-        <div class="text-[10px] text-slate-500 dark:text-neutral-400 mt-0.5">
+        <div class="text-lg font-bold text-purple-950 dark:text-purple-100 font-mono">{totalInventoryCount} items</div>
+        <div class="text-[10px] text-purple-700 dark:text-purple-400 mt-0.5">
           {totalStockUnits.toLocaleString()} total units
         </div>
       </div>
     </div>
 
-    <!-- Inventory Alerts -->
-    <div class="p-3 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black flex flex-col justify-between shadow-xs">
+    <!-- Stock Alerts Tile (Amber/Rose) -->
+    <div class="p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-amber-900/20 flex flex-col justify-between shadow-xs hover:shadow-md transition-all">
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400">Stock Alerts</span>
-        <AlertTriangle class="h-4 w-4 text-amber-500 shrink-0" />
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">Stock Alerts</span>
+        <div class="p-1.5 rounded-lg bg-amber-200/60 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300">
+          <AlertTriangle class="h-4 w-4 shrink-0" />
+        </div>
       </div>
       <div class="mt-2">
-        <div class="text-lg font-bold text-slate-900 dark:text-white font-mono">
+        <div class="text-lg font-bold text-amber-950 dark:text-amber-100 font-mono">
           {lowStockCount} Low
         </div>
-        <div class="text-[10px] text-slate-500 dark:text-neutral-400 flex justify-between mt-0.5">
-          <span class="text-rose-500 font-medium">{outOfStockCount} empty</span>
-          <span class="text-amber-500 font-medium">{expiringSoonCount} exp 3m</span>
+        <div class="text-[10px] text-amber-800 dark:text-amber-300 flex justify-between mt-0.5">
+          <span class="text-rose-600 dark:text-rose-400 font-bold">{outOfStockCount} empty</span>
+          <span class="text-amber-700 dark:text-amber-400 font-semibold">{expiringSoonCount} exp 3m</span>
         </div>
       </div>
     </div>
