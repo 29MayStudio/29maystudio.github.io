@@ -195,14 +195,14 @@
 
 <div class="h-full flex flex-col overflow-y-auto p-6 space-y-6">
   <!-- Page Header -->
-  <div class="flex items-center justify-between">
+  <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Add Medicine</h2>
       <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">Add new stock entries using MedEx catalogue or manual input.</p>
     </div>
 
     <!-- Toggle Mode Switch -->
-    <div class="flex bg-slate-200 dark:bg-neutral-900 p-1 rounded-xl">
+    <div class="flex bg-slate-200 dark:bg-neutral-900 p-1 rounded-xl shrink-0">
       <button
         type="button"
         onclick={() => (mode = 'auto')}
