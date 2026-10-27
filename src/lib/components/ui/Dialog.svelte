@@ -61,7 +61,7 @@
       {#if title || description}
         <div class="mb-4 pr-6">
           {#if title}
-            <h2 class="text-xl font-semibold tracking-tight leading-none">{title}</h2>
+            <h2 class="text-xl font-normal leading-none">{title}</h2>
           {/if}
           {#if description}
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">{description}</p>

@@ -76,6 +76,10 @@
   --font-mono: 'SolaimanLipi', sans-serif;
 }
 
+html {
+  font-size: 17px;
+}
+
 body, input, button, select, textarea {
   background-color: var(--background);
   color: var(--foreground);
@@ -84,6 +88,8 @@ body, input, button, select, textarea {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: 'FairytaleSerifRoyalFashionBeauty', 'SolaimanLipi', serif;
+  font-weight: normal;
+  letter-spacing: 0.02em;
 }
 
 /* Famous UI Visual Effects */

@@ -148,7 +148,7 @@
   <!-- Page Header -->
   <div class="flex items-center justify-between border-b border-slate-200 dark:border-neutral-800 pb-4">
     <div>
-      <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+      <h1 class="text-2xl font-normal text-slate-900 dark:text-white">
         Data Management
       </h1>
       <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">

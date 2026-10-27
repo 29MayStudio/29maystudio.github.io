@@ -24,7 +24,7 @@
     <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
       <div>
         {#if title}
-          <h3 class="font-semibold text-lg leading-none tracking-tight text-slate-900 dark:text-slate-100">{title}</h3>
+          <h3 class="font-normal text-lg leading-none text-slate-900 dark:text-slate-100">{title}</h3>
         {/if}
         {#if description}
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{description}</p>
