@@ -18,11 +18,9 @@
     ArrowDownLeft,
     ArrowUpRight,
     X,
-    Users,
     History,
     Check,
-    Layers,
-    Ruler
+    Layers
   } from 'lucide-svelte';
 
   interface Props {
@@ -65,25 +63,21 @@
   // Toggle for history mode
   let showHistoryMode = $state(false);
 
-  // Form states - Received
-  let rxFabric = $state('');
-  let rxDia = $state('');
-  let rxGsm = $state('');
-  let rxRolls = $state<number | undefined>(undefined);
-  let rxWeight = $state<number | undefined>(undefined);
-  let rxNote = $state('');
-  let rxDate = $state(getTodayString());
-  let rxError = $state('');
+  // Excel Tally Quick New Entry Inputs - Received
+  let rxNewFabric = $state('');
+  let rxNewDia = $state('');
+  let rxNewGsm = $state('');
+  let rxNewRolls = $state<number | undefined>(undefined);
+  let rxNewWeight = $state<number | undefined>(undefined);
+  let rxNewNote = $state('');
 
-  // Form states - Delivered
-  let dxFabric = $state('');
-  let dxDia = $state('');
-  let dxGsm = $state('');
-  let dxRolls = $state<number | undefined>(undefined);
-  let dxWeight = $state<number | undefined>(undefined);
-  let dxNote = $state('');
-  let dxDate = $state(getTodayString());
-  let dxError = $state('');
+  // Excel Tally Quick New Entry Inputs - Delivered
+  let dxNewFabric = $state('');
+  let dxNewDia = $state('');
+  let dxNewGsm = $state('');
+  let dxNewRolls = $state<number | undefined>(undefined);
+  let dxNewWeight = $state<number | undefined>(undefined);
+  let dxNewNote = $state('');
 
   onMount(() => {
     seedInitialData().then(() => loadBaseData());
@@ -91,8 +85,8 @@
     // Listen for database updates from other screens
     const handleDbUpdate = async () => {
       await loadBaseData();
-      if (selectedClient) {
-        await loadClientRecords(selectedClient.id!);
+      if (selectedClient && selectedClient.id) {
+        await loadClientRecords(selectedClient.id);
       }
     };
 
@@ -105,10 +99,14 @@
     fabricTypes = await db.fabricTypes.orderBy('name').toArray();
     dias = await db.dias.toArray();
 
-    if (fabricTypes.length > 0 && !rxFabric) rxFabric = fabricTypes[0].name;
-    if (dias.length > 0 && !rxDia) rxDia = dias[0].value;
-    if (fabricTypes.length > 0 && !dxFabric) dxFabric = fabricTypes[0].name;
-    if (dias.length > 0 && !dxDia) dxDia = dias[0].value;
+    if (fabricTypes.length > 0) {
+      if (!rxNewFabric) rxNewFabric = fabricTypes[0].name;
+      if (!dxNewFabric) dxNewFabric = fabricTypes[0].name;
+    }
+    if (dias.length > 0) {
+      if (!rxNewDia) rxNewDia = dias[0].value;
+      if (!dxNewDia) dxNewDia = dias[0].value;
+    }
   }
 
   async function selectClient(client: Client) {
@@ -132,7 +130,6 @@
   async function loadClientRecords(clientId: number) {
     const today = getTodayString();
 
-    // Today's received & delivered
     todayReceivedList = await db.receivedRecords
       .where('client_id')
       .equals(clientId)
@@ -147,7 +144,6 @@
       .reverse()
       .toArray();
 
-    // Past received & delivered (all dates before today or all records)
     pastReceivedList = await db.receivedRecords
       .where('client_id')
       .equals(clientId)
@@ -185,111 +181,86 @@
     pastDeliveredList.reduce((acc, item) => acc + (item.weight_kg || 0), 0)
   );
 
-  // Submit Received Record
-  async function handleAddReceived(e: SubmitEvent) {
-    e.preventDefault();
-    rxError = '';
-
-    if (!selectedClient || !selectedClient.id) {
-      rxError = 'Please select a client first.';
-      return;
-    }
-
-    if (!rxWeight || rxWeight <= 0) {
-      rxError = 'Please enter a valid fabric weight (kg).';
-      return;
-    }
-
-    if (!rxFabric.trim()) {
-      rxError = 'Please select or enter a fabric type.';
-      return;
-    }
-
-    if (!rxDia.trim()) {
-      rxError = 'Please select or enter a Dia.';
-      return;
-    }
+  // Add Received Record via Tally Grid Row
+  async function addReceivedRow() {
+    if (!selectedClient?.id) return;
+    if (!rxNewWeight || rxNewWeight <= 0) return;
 
     await db.receivedRecords.add({
       client_id: selectedClient.id,
       client_name: selectedClient.name,
-      fabric_type: rxFabric.trim(),
-      dia: rxDia.trim(),
-      gsm: rxGsm.trim() || undefined,
-      rolls: rxRolls || undefined,
-      weight_kg: Number(rxWeight),
-      date: rxDate || getTodayString(),
+      fabric_type: rxNewFabric.trim() || (fabricTypes[0]?.name ?? 'Single Jersey'),
+      dia: rxNewDia.trim() || (dias[0]?.value ?? '30"'),
+      gsm: rxNewGsm.trim() || undefined,
+      rolls: rxNewRolls ? Number(rxNewRolls) : undefined,
+      weight_kg: Number(rxNewWeight),
+      date: getTodayString(),
       timestamp: new Date().toISOString(),
-      note: rxNote.trim() || undefined
+      note: rxNewNote.trim() || undefined
     });
 
-    // Reset fields
-    rxGsm = '';
-    rxRolls = undefined;
-    rxWeight = undefined;
-    rxNote = '';
+    // Reset inputs
+    rxNewGsm = '';
+    rxNewRolls = undefined;
+    rxNewWeight = undefined;
+    rxNewNote = '';
 
     await loadClientRecords(selectedClient.id);
   }
 
-  async function handleDeleteReceived(id?: number) {
+  // Add Delivered Record via Tally Grid Row
+  async function addDeliveredRow() {
+    if (!selectedClient?.id) return;
+    if (!dxNewWeight || dxNewWeight <= 0) return;
+
+    await db.deliveredRecords.add({
+      client_id: selectedClient.id,
+      client_name: selectedClient.name,
+      fabric_type: dxNewFabric.trim() || (fabricTypes[0]?.name ?? 'Single Jersey'),
+      dia: dxNewDia.trim() || (dias[0]?.value ?? '30"'),
+      gsm: dxNewGsm.trim() || undefined,
+      rolls: dxNewRolls ? Number(dxNewRolls) : undefined,
+      weight_kg: Number(dxNewWeight),
+      date: getTodayString(),
+      timestamp: new Date().toISOString(),
+      note: dxNoteField.trim() || undefined
+    });
+
+    // Reset inputs
+    dxNewGsm = '';
+    dxNewRolls = undefined;
+    dxNewWeight = undefined;
+    dxNewNote = '';
+
+    await loadClientRecords(selectedClient.id);
+  }
+
+  let dxNoteField = $derived(dxNewNote);
+
+  // Live Inline Editing Handlers
+  async function updateReceivedCell(id: number | undefined, field: keyof ReceivedRecord, value: any) {
     if (!id || !selectedClient?.id) return;
-    if (confirm('Delete this received record?')) {
+    await db.receivedRecords.update(id, { [field]: value });
+    await loadClientRecords(selectedClient.id);
+  }
+
+  async function updateDeliveredCell(id: number | undefined, field: keyof DeliveredRecord, value: any) {
+    if (!id || !selectedClient?.id) return;
+    await db.deliveredRecords.update(id, { [field]: value });
+    await loadClientRecords(selectedClient.id);
+  }
+
+  async function deleteReceivedRecord(id?: number) {
+    if (!id || !selectedClient?.id) return;
+    if (confirm('Delete this received tally entry?')) {
       await db.receivedRecords.delete(id);
       await loadClientRecords(selectedClient.id);
     }
   }
 
-  // Submit Delivered Record
-  async function handleAddDelivered(e: SubmitEvent) {
-    e.preventDefault();
-    dxError = '';
-
-    if (!selectedClient || !selectedClient.id) {
-      dxError = 'Please select a client first.';
-      return;
-    }
-
-    if (!dxWeight || dxWeight <= 0) {
-      dxError = 'Please enter a valid fabric weight (kg).';
-      return;
-    }
-
-    if (!dxFabric.trim()) {
-      dxError = 'Please select or enter a fabric type.';
-      return;
-    }
-
-    if (!dxDia.trim()) {
-      dxError = 'Please select or enter a Dia.';
-      return;
-    }
-
-    await db.deliveredRecords.add({
-      client_id: selectedClient.id,
-      client_name: selectedClient.name,
-      fabric_type: dxFabric.trim(),
-      dia: dxDia.trim(),
-      gsm: dxGsm.trim() || undefined,
-      rolls: dxRolls || undefined,
-      weight_kg: Number(dxWeight),
-      date: dxDate || getTodayString(),
-      timestamp: new Date().toISOString(),
-      note: dxNote.trim() || undefined
-    });
-
-    // Reset fields
-    dxGsm = '';
-    dxRolls = undefined;
-    dxWeight = undefined;
-    dxNote = '';
-
-    await loadClientRecords(selectedClient.id);
-  }
-
-  async function handleDeleteDelivered(id?: number) {
+  async function deleteDeliveredRecord(id?: number) {
     if (!id || !selectedClient?.id) return;
-    if (confirm('Delete this delivered record?')) {
+    if (confirm('Delete this delivered tally entry?')) {
       await db.deliveredRecords.delete(id);
       await loadClientRecords(selectedClient.id);
     }
@@ -310,7 +281,7 @@
             Knitting Factory Ledger
           </h1>
           <p class="text-slate-500 dark:text-neutral-400 text-base">
-            Select or search a client to view and manage Received & Delivered fabric records.
+            Select or search a client to open live tally / Excel database records.
           </p>
         </div>
 
@@ -404,7 +375,7 @@
     </div>
 
   {:else}
-    <!-- SELECTED CLIENT TOP SCREEN -->
+    <!-- SELECTED CLIENT TOP SCREEN WITH TALLY / EXCEL GRID -->
     <div class="h-full flex flex-col overflow-hidden">
       <!-- Top Sticky Bar with Search & Selected Client Big Headline -->
       <header class="bg-white dark:bg-neutral-900 border-b border-slate-200 dark:border-neutral-800 px-6 py-4 shrink-0 shadow-sm transition-all">
@@ -472,13 +443,14 @@
         </div>
       </header>
 
-      <!-- Main Dual Column Area (Left: 3.1 Received | Right: 3.2 Delivered) -->
+      <!-- Main Dual Column Area (Left: 3.1 Received Tally | Right: 3.2 Delivered Tally) -->
       <main class="flex-1 overflow-y-auto p-6">
         <!-- Date Bar & History Mode Toggle -->
         <div class="flex items-center justify-between mb-6 bg-white dark:bg-neutral-900 p-3 rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-sm">
           <div class="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-neutral-300">
             <Calendar class="w-4 h-4 text-emerald-600" />
-            <span>Today's Ledger Date: <span class="font-bold text-slate-900 dark:text-white">{todayDate}</span></span>
+            <span>Live Tally Date: <span class="font-bold text-slate-900 dark:text-white">{todayDate}</span></span>
+            <span class="text-[10px] bg-slate-100 dark:bg-neutral-800 text-slate-500 px-2 py-0.5 rounded-md ml-2 font-mono">Excel Live Edit Mode</span>
           </div>
 
           <!-- Mode Selector (Today vs Past History) -->
@@ -492,7 +464,7 @@
                   : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Today's Records
+              Today's Tally Sheet
             </button>
             <button
               type="button"
@@ -510,381 +482,477 @@
         </div>
 
         {#if !showHistoryMode}
-          <!-- TODAY'S TWO SIDE-BY-SIDE PANELS -->
+          <!-- TODAY'S EXCEL TALLY GRID: SIDE-BY-SIDE PANELS -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-            <!-- ================= LEFT COLUMN: 3.1 RECEIVED ================= -->
-            <div class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex flex-col space-y-5">
-              <!-- Header -->
+            <!-- ================= LEFT COLUMN: 3.1 RECEIVED TALLY GRID ================= -->
+            <div class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm space-y-4">
+              <!-- Header Bar -->
               <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-neutral-800">
                 <div class="flex items-center gap-3">
                   <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
                     <ArrowDownLeft class="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      3.1 Received
-                    </h2>
-                    <p class="text-xs text-slate-500 dark:text-neutral-400">Yarn / Fabric received into factory today</p>
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white">3.1 Received Tally Sheet</h2>
+                    <p class="text-xs text-slate-500 dark:text-neutral-400">Live editable grid for yarn / fabric received today</p>
                   </div>
                 </div>
 
                 <div class="text-right">
-                  <div class="text-xs text-slate-400">Today Total</div>
-                  <div class="text-base font-extrabold text-blue-600 dark:text-blue-400">
+                  <div class="text-[10px] text-slate-400 font-semibold uppercase">Total Received</div>
+                  <div class="text-base font-extrabold text-blue-600 dark:text-blue-400 font-mono">
                     {todayReceivedTotalKg.toFixed(1)} kg
                   </div>
                 </div>
               </div>
 
-              <!-- Quick Form: Add Received -->
-              <form onsubmit={handleAddReceived} class="bg-slate-50 dark:bg-neutral-800/40 p-4 rounded-xl border border-slate-200/60 dark:border-neutral-800 space-y-3">
-                {#if rxError}
-                  <div class="text-xs text-rose-500 font-semibold">{rxError}</div>
-                {/if}
+              <!-- Excel / Tally Grid Table -->
+              <div class="overflow-x-auto border border-slate-200 dark:border-neutral-800 rounded-xl bg-slate-50/50 dark:bg-neutral-900/50">
+                <table class="w-full text-left text-xs border-collapse font-sans">
+                  <!-- Grid Header -->
+                  <thead class="bg-blue-600 text-white font-bold text-[11px] uppercase tracking-wider">
+                    <tr class="divide-x divide-blue-500">
+                      <th class="px-2.5 py-2.5">Fabric Type</th>
+                      <th class="px-2 py-2.5 w-20">Dia</th>
+                      <th class="px-2 py-2.5 w-16">GSM</th>
+                      <th class="px-2 py-2.5 w-16">Rolls</th>
+                      <th class="px-2.5 py-2.5 w-24">Weight (kg)</th>
+                      <th class="px-2.5 py-2.5">Note</th>
+                      <th class="px-2 py-2.5 w-12 text-center">Action</th>
+                    </tr>
+                  </thead>
 
-                <div class="grid grid-cols-2 gap-3">
-                  <!-- Fabric Type -->
-                  <div>
-                    <label for="rx-fabric-select" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1">
-                      Fabric Type
-                    </label>
-                    <select
-                      id="rx-fabric-select"
-                      bind:value={rxFabric}
-                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {#each fabricTypes as fabric}
-                        <option value={fabric.name}>{fabric.name}</option>
-                      {/each}
-                    </select>
-                  </div>
+                  <tbody class="divide-y divide-slate-200 dark:divide-neutral-800 bg-white dark:bg-neutral-900">
+                    <!-- TOP TALLY QUICK ADD ROW -->
+                    <tr class="bg-blue-50/70 dark:bg-blue-950/30 divide-x divide-blue-100 dark:divide-blue-900/40 border-b-2 border-blue-500/30">
+                      <!-- Fabric Type select -->
+                      <td class="p-1">
+                        <select
+                          bind:value={rxNewFabric}
+                          class="w-full bg-white dark:bg-neutral-800 border border-blue-300 dark:border-blue-700 rounded px-1.5 py-1 text-xs font-semibold focus:ring-1 focus:ring-blue-500"
+                        >
+                          {#each fabricTypes as fabric}
+                            <option value={fabric.name}>{fabric.name}</option>
+                          {/each}
+                        </select>
+                      </td>
 
-                  <!-- Dia -->
-                  <div>
-                    <label for="rx-dia-select" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1">
-                      Dia
-                    </label>
-                    <select
-                      id="rx-dia-select"
-                      bind:value={rxDia}
-                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {#each dias as dia}
-                        <option value={dia.value}>{dia.value}</option>
-                      {/each}
-                    </select>
-                  </div>
-                </div>
+                      <!-- Dia select -->
+                      <td class="p-1">
+                        <select
+                          bind:value={rxNewDia}
+                          class="w-full bg-white dark:bg-neutral-800 border border-blue-300 dark:border-blue-700 rounded px-1.5 py-1 text-xs font-semibold focus:ring-1 focus:ring-blue-500"
+                        >
+                          {#each dias as dia}
+                            <option value={dia.value}>{dia.value}</option>
+                          {/each}
+                        </select>
+                      </td>
 
-                <div class="grid grid-cols-3 gap-3">
-                  <!-- Weight in KG (Required) -->
-                  <div>
-                    <label for="rx-weight-input" class="block text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">
-                      Weight (kg) *
-                    </label>
-                    <input
-                      id="rx-weight-input"
-                      type="number"
-                      step="0.01"
-                      bind:value={rxWeight}
-                      placeholder="e.g. 150.5"
-                      class="w-full px-3 py-2 rounded-lg border border-blue-300 dark:border-blue-800/80 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
+                      <!-- GSM input -->
+                      <td class="p-1">
+                        <input
+                          type="text"
+                          bind:value={rxNewGsm}
+                          placeholder="180"
+                          class="w-full bg-white dark:bg-neutral-800 border border-blue-300 dark:border-blue-700 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-blue-500 text-center"
+                        />
+                      </td>
 
-                  <!-- Rolls -->
-                  <div>
-                    <label for="rx-rolls-input" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1">
-                      Rolls
-                    </label>
-                    <input
-                      id="rx-rolls-input"
-                      type="number"
-                      bind:value={rxRolls}
-                      placeholder="e.g. 6"
-                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                      <!-- Rolls input -->
+                      <td class="p-1">
+                        <input
+                          type="number"
+                          bind:value={rxNewRolls}
+                          placeholder="6"
+                          class="w-full bg-white dark:bg-neutral-800 border border-blue-300 dark:border-blue-700 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-blue-500 text-center font-mono"
+                        />
+                      </td>
 
-                  <!-- GSM -->
-                  <div>
-                    <label for="rx-gsm-input" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1">
-                      GSM
-                    </label>
-                    <input
-                      id="rx-gsm-input"
-                      type="text"
-                      bind:value={rxGsm}
-                      placeholder="e.g. 180"
-                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
+                      <!-- Weight (kg) required input + Enter key listener -->
+                      <td class="p-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          bind:value={rxNewWeight}
+                          placeholder="0.00"
+                          onkeydown={(e) => { if (e.key === 'Enter') addReceivedRow(); }}
+                          class="w-full bg-blue-100/80 dark:bg-blue-900/50 border-2 border-blue-500 rounded px-1.5 py-1 text-xs font-extrabold text-blue-700 dark:text-blue-300 focus:ring-2 focus:ring-blue-500 text-right font-mono"
+                        />
+                      </td>
 
-                <div>
-                  <input
-                    type="text"
-                    bind:value={rxNote}
-                    placeholder="Note / Remarks (e.g. Lot #12, Machine 4)"
-                    class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                      <!-- Note input -->
+                      <td class="p-1">
+                        <input
+                          type="text"
+                          bind:value={rxNewNote}
+                          placeholder="Remarks / Lot"
+                          onkeydown={(e) => { if (e.key === 'Enter') addReceivedRow(); }}
+                          class="w-full bg-white dark:bg-neutral-800 border border-blue-300 dark:border-blue-700 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-blue-500"
+                        />
+                      </td>
 
-                <button
-                  type="submit"
-                  class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-colors shadow-md shadow-blue-600/20 flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Plus class="w-4 h-4" /> Save Received Record
-                </button>
-              </form>
+                      <!-- Add button cell -->
+                      <td class="p-1 text-center">
+                        <button
+                          type="button"
+                          onclick={addReceivedRow}
+                          class="w-full py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded text-xs flex items-center justify-center cursor-pointer shadow-sm"
+                          title="Add Tally Row"
+                        >
+                          <Plus class="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
 
-              <!-- Table: Today's Received Items -->
-              <div>
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-3 flex items-center justify-between">
-                  <span>Today Received Records ({todayReceivedList.length})</span>
-                  <span>Total Rolls: {todayReceivedTotalRolls}</span>
-                </h3>
+                    <!-- LIVE EXISTING ENTRIES ROWS -->
+                    {#if todayReceivedList.length === 0}
+                      <tr>
+                        <td colspan="7" class="p-6 text-center text-slate-400 text-xs italic">
+                          No received entries recorded today yet. Type in top row to enter tally.
+                        </td>
+                      </tr>
+                    {:else}
+                      {#each todayReceivedList as item}
+                        <tr class="hover:bg-blue-50/40 dark:hover:bg-neutral-800/60 divide-x divide-slate-100 dark:divide-neutral-800">
+                          <!-- Fabric Type Editable Cell -->
+                          <td class="p-1">
+                            <select
+                              value={item.fabric_type}
+                              onchange={(e) => updateReceivedCell(item.id, 'fabric_type', (e.target as HTMLSelectElement).value)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-blue-500 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-900 dark:text-white"
+                            >
+                              {#each fabricTypes as fabric}
+                                <option value={fabric.name}>{fabric.name}</option>
+                              {/each}
+                            </select>
+                          </td>
 
-                {#if todayReceivedList.length === 0}
-                  <div class="p-6 text-center text-slate-400 dark:text-neutral-500 text-xs border border-dashed border-slate-200 dark:border-neutral-800 rounded-xl">
-                    No received fabric records logged for today yet.
-                  </div>
-                {:else}
-                  <div class="overflow-x-auto border border-slate-200 dark:border-neutral-800 rounded-xl">
-                    <table class="w-full text-left text-xs">
-                      <thead class="bg-slate-50 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 border-b border-slate-200 dark:border-neutral-700 uppercase">
-                        <tr>
-                          <th class="px-3 py-2">Fabric</th>
-                          <th class="px-3 py-2">Dia/GSM</th>
-                          <th class="px-3 py-2">Rolls</th>
-                          <th class="px-3 py-2 font-bold text-blue-600 dark:text-blue-400">Weight</th>
-                          <th class="px-3 py-2 text-right">Action</th>
+                          <!-- Dia Editable Cell -->
+                          <td class="p-1">
+                            <select
+                              value={item.dia}
+                              onchange={(e) => updateReceivedCell(item.id, 'dia', (e.target as HTMLSelectElement).value)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-blue-500 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-900 dark:text-white"
+                            >
+                              {#each dias as dia}
+                                <option value={dia.value}>{dia.value}</option>
+                              {/each}
+                            </select>
+                          </td>
+
+                          <!-- GSM Editable Cell -->
+                          <td class="p-1">
+                            <input
+                              type="text"
+                              value={item.gsm || ''}
+                              onblur={(e) => updateReceivedCell(item.id, 'gsm', (e.target as HTMLInputElement).value)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-blue-500 rounded px-1.5 py-0.5 text-xs text-center text-slate-600 dark:text-neutral-300"
+                            />
+                          </td>
+
+                          <!-- Rolls Editable Cell -->
+                          <td class="p-1">
+                            <input
+                              type="number"
+                              value={item.rolls ?? ''}
+                              onblur={(e) => updateReceivedCell(item.id, 'rolls', Number((e.target as HTMLInputElement).value) || undefined)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-blue-500 rounded px-1.5 py-0.5 text-xs text-center font-mono font-semibold text-slate-700 dark:text-neutral-200"
+                            />
+                          </td>
+
+                          <!-- Weight (kg) Editable Cell -->
+                          <td class="p-1">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={item.weight_kg}
+                              onblur={(e) => updateReceivedCell(item.id, 'weight_kg', Number((e.target as HTMLInputElement).value) || item.weight_kg)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-blue-500 rounded px-1.5 py-0.5 text-xs text-right font-mono font-extrabold text-blue-600 dark:text-blue-400"
+                            />
+                          </td>
+
+                          <!-- Note Editable Cell -->
+                          <td class="p-1">
+                            <input
+                              type="text"
+                              value={item.note || ''}
+                              onblur={(e) => updateReceivedCell(item.id, 'note', (e.target as HTMLInputElement).value)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-blue-500 rounded px-1.5 py-0.5 text-xs text-slate-500 dark:text-neutral-400"
+                            />
+                          </td>
+
+                          <!-- Delete Action -->
+                          <td class="p-1 text-center">
+                            <button
+                              type="button"
+                              onclick={() => deleteReceivedRecord(item.id)}
+                              class="p-1 text-slate-400 hover:text-rose-500 rounded transition-colors cursor-pointer"
+                              title="Delete Tally Row"
+                            >
+                              <Trash2 class="w-3.5 h-3.5" />
+                            </button>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody class="divide-y divide-slate-100 dark:divide-neutral-800">
-                        {#each todayReceivedList as item}
-                          <tr class="hover:bg-slate-50 dark:hover:bg-neutral-800/50">
-                            <td class="px-3 py-2 font-semibold text-slate-900 dark:text-white">
-                              {item.fabric_type}
-                              {#if item.note}
-                                <div class="text-[10px] text-slate-400 font-normal">{item.note}</div>
-                              {/if}
-                            </td>
-                            <td class="px-3 py-2 text-slate-600 dark:text-neutral-300">
-                              {item.dia} {#if item.gsm}<span class="text-slate-400">({item.gsm})</span>{/if}
-                            </td>
-                            <td class="px-3 py-2 text-slate-600 dark:text-neutral-300">
-                              {item.rolls ?? '-'}
-                            </td>
-                            <td class="px-3 py-2 font-extrabold text-blue-600 dark:text-blue-400">
-                              {item.weight_kg} kg
-                            </td>
-                            <td class="px-3 py-2 text-right">
-                              <button
-                                type="button"
-                                onclick={() => handleDeleteReceived(item.id)}
-                                class="p-1 text-slate-400 hover:text-rose-500 rounded transition-colors cursor-pointer"
-                                title="Delete record"
-                              >
-                                <Trash2 class="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        {/each}
-                      </tbody>
-                    </table>
-                  </div>
-                {/if}
+                      {/each}
+                    {/if}
+                  </tbody>
+
+                  <!-- TOTALS FOOTER ROW -->
+                  <tfoot class="bg-blue-100/70 dark:bg-blue-950/60 font-bold text-xs text-slate-900 dark:text-white border-t-2 border-blue-500">
+                    <tr class="divide-x divide-blue-200 dark:divide-blue-900">
+                      <td colspan="3" class="px-3 py-2 text-right uppercase tracking-wider font-extrabold text-[11px] text-blue-800 dark:text-blue-300">
+                        Received Totals:
+                      </td>
+                      <td class="px-2 py-2 text-center font-mono text-slate-800 dark:text-neutral-100">
+                        {todayReceivedTotalRolls} rolls
+                      </td>
+                      <td class="px-2.5 py-2 text-right font-mono font-black text-sm text-blue-700 dark:text-blue-300">
+                        {todayReceivedTotalKg.toFixed(1)} kg
+                      </td>
+                      <td colspan="2" class="px-2 py-2 text-[10px] text-slate-500 italic">
+                        {todayReceivedList.length} rows
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
 
 
-            <!-- ================= RIGHT COLUMN: 3.2 DELIVERED ================= -->
-            <div class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex flex-col space-y-5">
-              <!-- Header -->
+            <!-- ================= RIGHT COLUMN: 3.2 DELIVERED TALLY GRID ================= -->
+            <div class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm space-y-4">
+              <!-- Header Bar -->
               <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-neutral-800">
                 <div class="flex items-center gap-3">
                   <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
                     <ArrowUpRight class="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      3.2 Delivered
-                    </h2>
-                    <p class="text-xs text-slate-500 dark:text-neutral-400">Finished knitted fabric delivered to client today</p>
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white">3.2 Delivered Tally Sheet</h2>
+                    <p class="text-xs text-slate-500 dark:text-neutral-400">Live editable grid for finished fabric delivered today</p>
                   </div>
                 </div>
 
                 <div class="text-right">
-                  <div class="text-xs text-slate-400">Today Total</div>
-                  <div class="text-base font-extrabold text-emerald-600 dark:text-emerald-400">
+                  <div class="text-[10px] text-slate-400 font-semibold uppercase">Total Delivered</div>
+                  <div class="text-base font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
                     {todayDeliveredTotalKg.toFixed(1)} kg
                   </div>
                 </div>
               </div>
 
-              <!-- Quick Form: Add Delivered -->
-              <form onsubmit={handleAddDelivered} class="bg-slate-50 dark:bg-neutral-800/40 p-4 rounded-xl border border-slate-200/60 dark:border-neutral-800 space-y-3">
-                {#if dxError}
-                  <div class="text-xs text-rose-500 font-semibold">{dxError}</div>
-                {/if}
+              <!-- Excel / Tally Grid Table -->
+              <div class="overflow-x-auto border border-slate-200 dark:border-neutral-800 rounded-xl bg-slate-50/50 dark:bg-neutral-900/50">
+                <table class="w-full text-left text-xs border-collapse font-sans">
+                  <!-- Grid Header -->
+                  <thead class="bg-emerald-600 text-white font-bold text-[11px] uppercase tracking-wider">
+                    <tr class="divide-x divide-emerald-500">
+                      <th class="px-2.5 py-2.5">Fabric Type</th>
+                      <th class="px-2 py-2.5 w-20">Dia</th>
+                      <th class="px-2 py-2.5 w-16">GSM</th>
+                      <th class="px-2 py-2.5 w-16">Rolls</th>
+                      <th class="px-2.5 py-2.5 w-24">Weight (kg)</th>
+                      <th class="px-2.5 py-2.5">Note</th>
+                      <th class="px-2 py-2.5 w-12 text-center">Action</th>
+                    </tr>
+                  </thead>
 
-                <div class="grid grid-cols-2 gap-3">
-                  <!-- Fabric Type -->
-                  <div>
-                    <label for="dx-fabric-select" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1">
-                      Fabric Type
-                    </label>
-                    <select
-                      id="dx-fabric-select"
-                      bind:value={dxFabric}
-                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
-                      {#each fabricTypes as fabric}
-                        <option value={fabric.name}>{fabric.name}</option>
-                      {/each}
-                    </select>
-                  </div>
+                  <tbody class="divide-y divide-slate-200 dark:divide-neutral-800 bg-white dark:bg-neutral-900">
+                    <!-- TOP TALLY QUICK ADD ROW -->
+                    <tr class="bg-emerald-50/70 dark:bg-emerald-950/30 divide-x divide-emerald-100 dark:divide-emerald-900/40 border-b-2 border-emerald-500/30">
+                      <!-- Fabric Type select -->
+                      <td class="p-1">
+                        <select
+                          bind:value={dxNewFabric}
+                          class="w-full bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 rounded px-1.5 py-1 text-xs font-semibold focus:ring-1 focus:ring-emerald-500"
+                        >
+                          {#each fabricTypes as fabric}
+                            <option value={fabric.name}>{fabric.name}</option>
+                          {/each}
+                        </select>
+                      </td>
 
-                  <!-- Dia -->
-                  <div>
-                    <label for="dx-dia-select" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1">
-                      Dia
-                    </label>
-                    <select
-                      id="dx-dia-select"
-                      bind:value={dxDia}
-                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
-                      {#each dias as dia}
-                        <option value={dia.value}>{dia.value}</option>
-                      {/each}
-                    </select>
-                  </div>
-                </div>
+                      <!-- Dia select -->
+                      <td class="p-1">
+                        <select
+                          bind:value={dxNewDia}
+                          class="w-full bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 rounded px-1.5 py-1 text-xs font-semibold focus:ring-1 focus:ring-emerald-500"
+                        >
+                          {#each dias as dia}
+                            <option value={dia.value}>{dia.value}</option>
+                          {/each}
+                        </select>
+                      </td>
 
-                <div class="grid grid-cols-3 gap-3">
-                  <!-- Weight in KG (Required) -->
-                  <div>
-                    <label for="dx-weight-input" class="block text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
-                      Weight (kg) *
-                    </label>
-                    <input
-                      id="dx-weight-input"
-                      type="number"
-                      step="0.01"
-                      bind:value={dxWeight}
-                      placeholder="e.g. 145.0"
-                      class="w-full px-3 py-2 rounded-lg border border-emerald-300 dark:border-emerald-800/80 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      required
-                    />
-                  </div>
+                      <!-- GSM input -->
+                      <td class="p-1">
+                        <input
+                          type="text"
+                          bind:value={dxNewGsm}
+                          placeholder="180"
+                          class="w-full bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-emerald-500 text-center"
+                        />
+                      </td>
 
-                  <!-- Rolls -->
-                  <div>
-                    <label for="dx-rolls-input" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1">
-                      Rolls
-                    </label>
-                    <input
-                      id="dx-rolls-input"
-                      type="number"
-                      bind:value={dxRolls}
-                      placeholder="e.g. 6"
-                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
+                      <!-- Rolls input -->
+                      <td class="p-1">
+                        <input
+                          type="number"
+                          bind:value={dxNewRolls}
+                          placeholder="6"
+                          class="w-full bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-emerald-500 text-center font-mono"
+                        />
+                      </td>
 
-                  <!-- GSM -->
-                  <div>
-                    <label for="dx-gsm-input" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1">
-                      GSM
-                    </label>
-                    <input
-                      id="dx-gsm-input"
-                      type="text"
-                      bind:value={dxGsm}
-                      placeholder="e.g. 180"
-                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
+                      <!-- Weight (kg) required input + Enter key listener -->
+                      <td class="p-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          bind:value={dxNewWeight}
+                          placeholder="0.00"
+                          onkeydown={(e) => { if (e.key === 'Enter') addDeliveredRow(); }}
+                          class="w-full bg-emerald-100/80 dark:bg-emerald-900/50 border-2 border-emerald-500 rounded px-1.5 py-1 text-xs font-extrabold text-emerald-700 dark:text-emerald-300 focus:ring-2 focus:ring-emerald-500 text-right font-mono"
+                        />
+                      </td>
 
-                <div>
-                  <input
-                    type="text"
-                    bind:value={dxNote}
-                    placeholder="Note / Challan # (e.g. Challan #9012)"
-                    class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+                      <!-- Note input -->
+                      <td class="p-1">
+                        <input
+                          type="text"
+                          bind:value={dxNewNote}
+                          placeholder="Challan #"
+                          onkeydown={(e) => { if (e.key === 'Enter') addDeliveredRow(); }}
+                          class="w-full bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </td>
 
-                <button
-                  type="submit"
-                  class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-colors shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Plus class="w-4 h-4" /> Save Delivered Record
-                </button>
-              </form>
+                      <!-- Add button cell -->
+                      <td class="p-1 text-center">
+                        <button
+                          type="button"
+                          onclick={addDeliveredRow}
+                          class="w-full py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs flex items-center justify-center cursor-pointer shadow-sm"
+                          title="Add Tally Row"
+                        >
+                          <Plus class="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
 
-              <!-- Table: Today's Delivered Items -->
-              <div>
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-3 flex items-center justify-between">
-                  <span>Today Delivered Records ({todayDeliveredList.length})</span>
-                  <span>Total Rolls: {todayDeliveredTotalRolls}</span>
-                </h3>
+                    <!-- LIVE EXISTING ENTRIES ROWS -->
+                    {#if todayDeliveredList.length === 0}
+                      <tr>
+                        <td colspan="7" class="p-6 text-center text-slate-400 text-xs italic">
+                          No delivered entries recorded today yet. Type in top row to enter tally.
+                        </td>
+                      </tr>
+                    {:else}
+                      {#each todayDeliveredList as item}
+                        <tr class="hover:bg-emerald-50/40 dark:hover:bg-neutral-800/60 divide-x divide-slate-100 dark:divide-neutral-800">
+                          <!-- Fabric Type Editable Cell -->
+                          <td class="p-1">
+                            <select
+                              value={item.fabric_type}
+                              onchange={(e) => updateDeliveredCell(item.id, 'fabric_type', (e.target as HTMLSelectElement).value)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-emerald-500 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-900 dark:text-white"
+                            >
+                              {#each fabricTypes as fabric}
+                                <option value={fabric.name}>{fabric.name}</option>
+                              {/each}
+                            </select>
+                          </td>
 
-                {#if todayDeliveredList.length === 0}
-                  <div class="p-6 text-center text-slate-400 dark:text-neutral-500 text-xs border border-dashed border-slate-200 dark:border-neutral-800 rounded-xl">
-                    No delivered fabric records logged for today yet.
-                  </div>
-                {:else}
-                  <div class="overflow-x-auto border border-slate-200 dark:border-neutral-800 rounded-xl">
-                    <table class="w-full text-left text-xs">
-                      <thead class="bg-slate-50 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 border-b border-slate-200 dark:border-neutral-700 uppercase">
-                        <tr>
-                          <th class="px-3 py-2">Fabric</th>
-                          <th class="px-3 py-2">Dia/GSM</th>
-                          <th class="px-3 py-2">Rolls</th>
-                          <th class="px-3 py-2 font-bold text-emerald-600 dark:text-emerald-400">Weight</th>
-                          <th class="px-3 py-2 text-right">Action</th>
+                          <!-- Dia Editable Cell -->
+                          <td class="p-1">
+                            <select
+                              value={item.dia}
+                              onchange={(e) => updateDeliveredCell(item.id, 'dia', (e.target as HTMLSelectElement).value)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-emerald-500 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-900 dark:text-white"
+                            >
+                              {#each dias as dia}
+                                <option value={dia.value}>{dia.value}</option>
+                              {/each}
+                            </select>
+                          </td>
+
+                          <!-- GSM Editable Cell -->
+                          <td class="p-1">
+                            <input
+                              type="text"
+                              value={item.gsm || ''}
+                              onblur={(e) => updateDeliveredCell(item.id, 'gsm', (e.target as HTMLInputElement).value)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-emerald-500 rounded px-1.5 py-0.5 text-xs text-center text-slate-600 dark:text-neutral-300"
+                            />
+                          </td>
+
+                          <!-- Rolls Editable Cell -->
+                          <td class="p-1">
+                            <input
+                              type="number"
+                              value={item.rolls ?? ''}
+                              onblur={(e) => updateDeliveredCell(item.id, 'rolls', Number((e.target as HTMLInputElement).value) || undefined)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-emerald-500 rounded px-1.5 py-0.5 text-xs text-center font-mono font-semibold text-slate-700 dark:text-neutral-200"
+                            />
+                          </td>
+
+                          <!-- Weight (kg) Editable Cell -->
+                          <td class="p-1">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={item.weight_kg}
+                              onblur={(e) => updateDeliveredCell(item.id, 'weight_kg', Number((e.target as HTMLInputElement).value) || item.weight_kg)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-emerald-500 rounded px-1.5 py-0.5 text-xs text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400"
+                            />
+                          </td>
+
+                          <!-- Note Editable Cell -->
+                          <td class="p-1">
+                            <input
+                              type="text"
+                              value={item.note || ''}
+                              onblur={(e) => updateDeliveredCell(item.id, 'note', (e.target as HTMLInputElement).value)}
+                              class="w-full bg-transparent hover:bg-white dark:hover:bg-neutral-800 border border-transparent focus:border-emerald-500 rounded px-1.5 py-0.5 text-xs text-slate-500 dark:text-neutral-400"
+                            />
+                          </td>
+
+                          <!-- Delete Action -->
+                          <td class="p-1 text-center">
+                            <button
+                              type="button"
+                              onclick={() => deleteDeliveredRecord(item.id)}
+                              class="p-1 text-slate-400 hover:text-rose-500 rounded transition-colors cursor-pointer"
+                              title="Delete Tally Row"
+                            >
+                              <Trash2 class="w-3.5 h-3.5" />
+                            </button>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody class="divide-y divide-slate-100 dark:divide-neutral-800">
-                        {#each todayDeliveredList as item}
-                          <tr class="hover:bg-slate-50 dark:hover:bg-neutral-800/50">
-                            <td class="px-3 py-2 font-semibold text-slate-900 dark:text-white">
-                              {item.fabric_type}
-                              {#if item.note}
-                                <div class="text-[10px] text-slate-400 font-normal">{item.note}</div>
-                              {/if}
-                            </td>
-                            <td class="px-3 py-2 text-slate-600 dark:text-neutral-300">
-                              {item.dia} {#if item.gsm}<span class="text-slate-400">({item.gsm})</span>{/if}
-                            </td>
-                            <td class="px-3 py-2 text-slate-600 dark:text-neutral-300">
-                              {item.rolls ?? '-'}
-                            </td>
-                            <td class="px-3 py-2 font-extrabold text-emerald-600 dark:text-emerald-400">
-                              {item.weight_kg} kg
-                            </td>
-                            <td class="px-3 py-2 text-right">
-                              <button
-                                type="button"
-                                onclick={() => handleDeleteDelivered(item.id)}
-                                class="p-1 text-slate-400 hover:text-rose-500 rounded transition-colors cursor-pointer"
-                                title="Delete record"
-                              >
-                                <Trash2 class="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        {/each}
-                      </tbody>
-                    </table>
-                  </div>
-                {/if}
+                      {/each}
+                    {/if}
+                  </tbody>
+
+                  <!-- TOTALS FOOTER ROW -->
+                  <tfoot class="bg-emerald-100/70 dark:bg-emerald-950/60 font-bold text-xs text-slate-900 dark:text-white border-t-2 border-emerald-500">
+                    <tr class="divide-x divide-emerald-200 dark:divide-emerald-900">
+                      <td colspan="3" class="px-3 py-2 text-right uppercase tracking-wider font-extrabold text-[11px] text-emerald-800 dark:text-emerald-300">
+                        Delivered Totals:
+                      </td>
+                      <td class="px-2 py-2 text-center font-mono text-slate-800 dark:text-neutral-100">
+                        {todayDeliveredTotalRolls} rolls
+                      </td>
+                      <td class="px-2.5 py-2 text-right font-mono font-black text-sm text-emerald-700 dark:text-emerald-300">
+                        {todayDeliveredTotalKg.toFixed(1)} kg
+                      </td>
+                      <td colspan="2" class="px-2 py-2 text-[10px] text-slate-500 italic">
+                        {todayDeliveredList.length} rows
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
 
