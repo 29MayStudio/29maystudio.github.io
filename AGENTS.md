@@ -1,25 +1,38 @@
 # AGENTS.md - Developer & Agent Instructions
 
 ## Overview
-**The Halal Pharmacy** is a desktop-focused Point of Sale (POS) and inventory management web application built using **Svelte 5**, **TypeScript**, **Tailwind CSS v4**, and **Dexie IndexedDB** for 100% offline usage.
+**M/S A.B.S Knit Fabrics Data Management System** is a desktop-focused data entry and tally record web application designed for a knitting factory. Built using **Svelte 5**, **TypeScript**, **Tailwind CSS v4**, and **Dexie IndexedDB**, it operates 100% offline in browser storage.
 
-## Architecture Guidelines
+## Core Features & Architecture
 
-### Core Stack
-- **Framework**: Svelte 5 (`runes` reactive syntax like `$state`, `$derived`, `$effect`, and snippet props)
-- **Styling**: Tailwind CSS v4 with custom CSS variables for light/dark themes
+### Stack
+- **Framework**: Svelte 5 (`runes` reactive syntax like `$state`, `$derived`, `$effect`, snippets, snippet props)
+- **Styling**: Tailwind CSS v4 with custom font (`SolaimanLipi`) and dark mode theme (AMOLED pure black)
 - **Local Database**: IndexedDB managed via `Dexie` (`src/lib/db.ts`)
 - **Icons**: `@lucide/svelte`
 
-### Data Flow & Offline Storage
-All core operations work fully offline:
-1. **MedEx Dataset (`catalog`)**: Synced from `https://raw.githubusercontent.com/29MayStudio/MedEx/refs/heads/main/list.json`. Auto-refetched every 7 days or manually via Settings.
-2. **Local Stock (`inventory`)**: Contains medicines added either via Auto Mode (from MedEx dataset) or Manual Mode.
-3. **Sales History (`sales`)**: Stores complete anonymous transaction logs, receipts, payment methods, and timestamps.
-4. **Held Bills (`heldBills`)**: Holds active cart states for delayed completion.
+### Key Features
+1. **Client Tally Data Entry (`HomePage.svelte`)**:
+   - Autocomplete client search and selection.
+   - Dual full-screen side-by-side tally grid view (Received Tally | Delivered Tally).
+   - Date-wise sorting (oldest date on top, newest date on bottom).
+   - Dynamic multi-item yarn entry form for received and delivered challans.
+   - Del column question icon popover with **Edit** and **Delete** options.
+   - Edit modal popup for updating past entries and item rows.
+   - Custom modal popups for all confirmation dialogs.
+   - **Statement**: Highlighted button beside client name title to open a date-range popup dialog and print a clean A4 Landscape statement chart with client name on top and two charts side-by-side.
+
+2. **Data Management (`AddPage.svelte`)**:
+   - Add and manage registered Clients, Yarn Types, and Dias.
+   - Delete confirmations powered by custom modal dialogs.
+
+3. **All Records & Audit Logs (`RecordsPage.svelte`)**:
+   - Minimalist audit trail table supporting multi-item challan breakdowns.
+   - Search by client, date filter, type filter (Received/Delivered).
+   - CSV export feature.
 
 ### Verification Commands
-Always verify changes before committing:
+Before committing or submitting changes, run:
 ```bash
 # Type check and Svelte diagnostics
 npm run check
@@ -27,14 +40,3 @@ npm run check
 # Production build check
 npm run build
 ```
-
-### File Structure
-- `src/lib/db.ts`: Dexie schema models and tables.
-- `src/lib/sync.ts`: MedEx catalog fetch, parsing, and auto 7-day refetch logic.
-- `src/lib/components/ui/`: Reusable UI components inspired by shadcn-svelte.
-- `src/lib/components/`:
-  - `SalePage.svelte`: Sale POS view with generic name search and Bill Hold.
-  - `DashboardPage.svelte`: Metrics, revenue, low stock & top seller widgets.
-  - `AddMedicinePage.svelte`: Auto (MedEx) and Manual stock entry forms.
-  - `RecordsPage.svelte`: Audit logs, CSV exports, receipt modal, and refunds.
-  - `SettingsPage.svelte`: Theme toggle, refetch trigger, seed data & database reset.

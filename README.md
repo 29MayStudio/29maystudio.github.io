@@ -1,53 +1,46 @@
-# The Halal Pharmacy
+# M/S A.B.S Knit Fabrics — Data Management System
 
-**The Halal Pharmacy** is a desktop-first, fully offline Point of Sale (POS) and inventory management software designed for pharmacy owners.
+**M/S A.B.S Knit Fabrics Data Management System** is a desktop-first, fully offline tally record and data entry application tailored for knitting factory operations.
 
-Built using **Svelte 5**, **Tailwind CSS v4**, **shadcn-style UI components**, and **Dexie IndexedDB**, it seamlessly manages medicine sales, stock inventories, and sales auditing without requiring an internet connection.
+Built with **Svelte 5**, **TypeScript**, **Tailwind CSS v4**, and **Dexie IndexedDB**, it enables seamless tracking of received yarn bags and delivered fabric rolls per client without requiring an internet connection.
 
 ---
 
 ## Key Features
 
-1. **Sale Page (POS)**
-   - Search medicines by **Generic Name**, Brand Name, or Strength.
-   - Live cart calculation, item quantity adjustments, and anonymous quick checkout.
-   - **Bill Hold**: Put active sales on hold with custom notes/identifiers and resume them anytime.
-   - Printable receipt generation with invoice reference codes.
+1. **Client Tally Data Entry (Home Screen)**
+   - **Client Autocomplete Search**: Fast search bar with client suggestions.
+   - **Side-by-Side Dual View**: Received Tally and Delivered Tally grids separated by a central dividing line.
+   - **Date-Wise Sorting**: Records are sorted chronologically by date (oldest at the top, newest at the bottom).
+   - **Multi-Item Entry**: Form to log multiple yarn items in a single challan with automatic bag/roll and total weight calculations.
+   - **Question Mark Popover**: Hover/click options in the Del column providing **Edit** and **Delete** actions.
+   - **Edit Popup**: Modify past entries, challan numbers, and item rows in a popup modal.
+   - **Custom Confirmation Modals**: Replaces native browser dialogs for all deletion confirmations.
+   - **Statement & A4 Landscape Printing**: Highlighted `Statement` button beside client headline to select a date range and print a clean side-by-side A4 Landscape statement chart.
 
-2. **Dashboard**
-   - Live financial analytics: Today's Revenue, Completed Bills, Items Sold.
-   - Inventory statistics: Total active stock items, Low Stock alerts (< 10 units), and Expiring Soon items.
-   - Recent transaction logs and top-selling medicine rankings.
+2. **Data Management (Add Screen)**
+   - Manage registered **Clients**, **Yarn Types**, and **Dias**.
+   - Input validation and duplicate checks.
 
-3. **Add Medicine**
-   - **Auto Mode**: Search Bangladeshi medicine catalogue sourced from MedEx (`29MayStudio/MedEx`) to auto-populate brand name, dosage form, manufacturer, and generics. Just enter strength, unit price, expiry month, and stock quantity.
-   - **Manual Mode**: Completely custom medicine entry for custom generics, strengths, pricing, and initial stock.
-
-4. **Sales Records**
-   - Detailed transaction audit trail.
-   - Search by invoice code or medicine name, filter by date and payment method (Cash, Card, Mobile Banking).
-   - Void/Refund option with automatic stock restoration into local inventory.
-   - CSV Export for accounting reports.
-
-5. **Settings & Day/Night Mode**
-   - Toggle between **Day Mode** (Light) and **Night Mode** (Dark).
-   - **MedEx Database Refetch**: Manual refetch button to download the latest Bangladeshi medicine dataset from GitHub.
-   - Automatic background schedule checking to refetch every 7 days.
-   - Sample medicine seed and database clear/reset tools.
+3. **All Records & Audit Logs (Records Screen)**
+   - Minimalist spreadsheet audit trail of all received and delivered challans.
+   - Direct breakdown display for multi-item challans.
+   - Filter by client name, entry date, or transaction type (Received / Delivered).
+   - **CSV Export**: Download audit logs for offline reporting and accounting.
 
 ---
 
-## Tech Stack & Data Source
+## Tech Stack
 
 - **Framework**: [Svelte 5](https://svelte.dev) + Vite
 - **Database**: [Dexie.js](https://dexie.org) (IndexedDB wrapper for local browser storage)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com)
 - **Icons**: [Lucide Svelte](https://lucide.dev)
-- **Data Source**: [29MayStudio/MedEx](https://github.com/29MayStudio/MedEx) (`list.json`)
+- **Typography**: Custom `SolaimanLipi` font family
 
 ---
 
-## Development & Usage
+## Development & Build Instructions
 
 ### 1. Install Dependencies
 ```bash
@@ -59,12 +52,12 @@ npm install
 npm run dev
 ```
 
-### 3. Type Checking & Verification
+### 3. Type Checking
 ```bash
 npm run check
 ```
 
-### 4. Build for Production
+### 4. Production Build
 ```bash
 npm run build
 ```
