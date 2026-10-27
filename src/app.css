@@ -125,3 +125,40 @@ h1, h2, h3, h4, h5, h6 {
 .dark .card-hover-lift:hover {
   box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.12);
 }
+
+/* Print CSS Presets for A4 Landscape Statements */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  aside,
+  header,
+  nav,
+  button,
+  input,
+  select,
+  .no-print,
+  .backdrop-blur-xs {
+    display: none !important;
+  }
+
+  .statement-print-area {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    color: black !important;
+  }
+}

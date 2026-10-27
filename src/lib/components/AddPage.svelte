@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { db, seedInitialData, type Client, type FabricType, type Dia } from '../db';
   import { UserPlus, Layers, Ruler, Trash2, Plus, Users, CheckCircle2, AlertCircle } from 'lucide-svelte';
+  import Dialog from './ui/Dialog.svelte';
 
   // Reactive state
   let clients = $state<Client[]>([]);
@@ -23,6 +24,31 @@
   let diaSuccess = $state('');
 
   let activeTab = $state<'clients' | 'fabrics' | 'dias'>('clients');
+
+  // Custom confirmation modal state
+  let confirmModal = $state<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  function openConfirmModal(title: string, message: string, onConfirm: () => void) {
+    confirmModal = {
+      open: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        confirmModal.open = false;
+      }
+    };
+  }
 
   onMount(async () => {
     await seedInitialData();
@@ -72,11 +98,11 @@
 
   async function handleDeleteClient(id?: number) {
     if (!id) return;
-    if (confirm('Are you sure you want to delete this client?')) {
+    openConfirmModal('Delete Client', 'Are you sure you want to delete this client?', async () => {
       await db.clients.delete(id);
       await loadAllData();
       window.dispatchEvent(new CustomEvent('db-updated'));
-    }
+    });
   }
 
   async function handleAddFabricType(e: SubmitEvent) {
@@ -104,11 +130,11 @@
 
   async function handleDeleteFabricType(id?: number) {
     if (!id) return;
-    if (confirm('Delete this yarn type?')) {
+    openConfirmModal('Delete Yarn Type', 'Are you sure you want to delete this yarn type?', async () => {
       await db.fabricTypes.delete(id);
       await loadAllData();
       window.dispatchEvent(new CustomEvent('db-updated'));
-    }
+    });
   }
 
   async function handleAddDia(e: SubmitEvent) {
@@ -136,11 +162,11 @@
 
   async function handleDeleteDia(id?: number) {
     if (!id) return;
-    if (confirm('Delete this Dia?')) {
+    openConfirmModal('Delete Dia', 'Are you sure you want to delete this Dia value?', async () => {
       await db.dias.delete(id);
       await loadAllData();
       window.dispatchEvent(new CustomEvent('db-updated'));
-    }
+    });
   }
 </script>
 
@@ -229,7 +255,7 @@
 
           <form id="add-client-form" onsubmit={handleAddClient} class="space-y-4">
             <div>
-              <label for="client-name-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1.5">
+              <label for="client-name-input" class="block text-xs font-semibold text-slate-500 dark:text-neutral-400 mb-1.5">
                 Client / Company Name *
               </label>
               <input
@@ -243,7 +269,7 @@
             </div>
 
             <div>
-              <label for="client-address-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1.5">
+              <label for="client-address-input" class="block text-xs font-semibold text-slate-500 dark:text-neutral-400 mb-1.5">
                 Address / Location (Optional)
               </label>
               <textarea
@@ -286,7 +312,7 @@
         {:else}
           <div class="overflow-x-auto flex-1">
             <table class="w-full text-left text-sm">
-              <thead class="text-xs uppercase bg-slate-50 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 border-b border-slate-200 dark:border-neutral-700">
+              <thead class="text-xs bg-slate-50 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 border-b border-slate-200 dark:border-neutral-700">
                 <tr>
                   <th class="px-4 py-3 rounded-tl-xl">Client Name</th>
                   <th class="px-4 py-3">Address</th>
@@ -350,7 +376,7 @@
 
           <form id="add-fabric-form" onsubmit={handleAddFabricType} class="space-y-4">
             <div>
-              <label for="fabric-name-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1.5">
+              <label for="fabric-name-input" class="block text-xs font-semibold text-slate-500 dark:text-neutral-400 mb-1.5">
                 Yarn Type Name *
               </label>
               <input
@@ -432,7 +458,7 @@
 
           <form id="add-dia-form" onsubmit={handleAddDia} class="space-y-4">
             <div>
-              <label for="dia-value-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1.5">
+              <label for="dia-value-input" class="block text-xs font-semibold text-slate-500 dark:text-neutral-400 mb-1.5">
                 Dia Value *
               </label>
               <input
@@ -486,3 +512,24 @@
     {/if}
   </div>
 </div>
+
+<!-- Custom Confirm Modal -->
+<Dialog open={confirmModal.open} onclose={() => (confirmModal.open = false)} title={confirmModal.title} maxWidth="max-w-sm">
+  <p class="text-sm text-slate-600 dark:text-slate-300 my-2">{confirmModal.message}</p>
+  <div class="mt-4 flex justify-end gap-2">
+    <button
+      type="button"
+      onclick={() => (confirmModal.open = false)}
+      class="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-semibold text-slate-700 dark:text-neutral-300 cursor-pointer"
+    >
+      Cancel
+    </button>
+    <button
+      type="button"
+      onclick={confirmModal.onConfirm}
+      class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer"
+    >
+      Delete
+    </button>
+  </div>
+</Dialog>
