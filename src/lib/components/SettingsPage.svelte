@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fetchMedExCatalog, getLastRefetchTime } from '../sync';
-  import { db } from '../db';
+  import { db, seedInitialData } from '../db';
   import Card from './ui/Card.svelte';
   import Button from './ui/Button.svelte';
   import Input from './ui/Input.svelte';
@@ -9,12 +8,10 @@
   import {
     Moon,
     Sun,
-    RefreshCw,
     Database,
     Trash2,
     CheckCircle2,
     AlertCircle,
-    Info,
     Layers,
     Store,
     Download,
@@ -23,18 +20,16 @@
   } from 'lucide-svelte';
 
   let isDark = $state(false);
-  let isRefetching = $state(false);
-  let lastRefetchText = $state('Never');
-  let catalogCount = $state(0);
-  let inventoryCount = $state(0);
-  let salesCount = $state(0);
-  let heldCount = $state(0);
+  let clientsCount = $state(0);
+  let fabricCount = $state(0);
+  let diaCount = $state(0);
+  let receivedCount = $state(0);
+  let deliveredCount = $state(0);
 
-  // Store profile fields
-  let storeName = $state('The Halal Pharmacy');
-  let storeSlogan = $state('Islamic Pharmacy & Medicine Outlet');
-  let storePhone = $state('+880 1700-000000');
-  let storeAddress = $state('Dhaka, Bangladesh');
+  // Factory profile fields
+  let factoryName = $state('The Halal Knitting Factory');
+  let factoryPhone = $state('+880 1700-000000');
+  let factoryAddress = $state('Gazipur, Dhaka, Bangladesh');
 
   let feedbackMsg = $state<string | null>(null);
   let isError = $state(false);
@@ -49,35 +44,20 @@
 
   async function loadSettingsInfo() {
     try {
-      catalogCount = await db.catalog.count();
-      inventoryCount = await db.inventory.count();
-      salesCount = await db.sales.count();
-      heldCount = await db.heldBills.count();
+      clientsCount = await db.clients.count();
+      fabricCount = await db.fabricTypes.count();
+      diaCount = await db.dias.count();
+      receivedCount = await db.receivedRecords.count();
+      deliveredCount = await db.deliveredRecords.count();
 
-      const savedName = await db.settings.get('storeName');
-      if (savedName) storeName = savedName.value;
+      const savedName = await db.settings.get('factoryName');
+      if (savedName) factoryName = savedName.value;
 
-      const savedSlogan = await db.settings.get('storeSlogan');
-      if (savedSlogan) storeSlogan = savedSlogan.value;
+      const savedPhone = await db.settings.get('factoryPhone');
+      if (savedPhone) factoryPhone = savedPhone.value;
 
-      const savedPhone = await db.settings.get('storePhone');
-      if (savedPhone) storePhone = savedPhone.value;
-
-      const savedAddress = await db.settings.get('storeAddress');
-      if (savedAddress) storeAddress = savedAddress.value;
-
-      const last = await getLastRefetchTime();
-      if (last) {
-        lastRefetchText = new Date(last).toLocaleString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      } else {
-        lastRefetchText = 'Never';
-      }
+      const savedAddress = await db.settings.get('factoryAddress');
+      if (savedAddress) factoryAddress = savedAddress.value;
     } catch (e) {
       console.error(e);
     }
@@ -99,48 +79,35 @@
     }
   }
 
-  async function saveStoreProfile(e: SubmitEvent) {
+  async function saveFactoryProfile(e: SubmitEvent) {
     e.preventDefault();
     try {
-      await db.settings.put({ key: 'storeName', value: storeName });
-      await db.settings.put({ key: 'storeSlogan', value: storeSlogan });
-      await db.settings.put({ key: 'storePhone', value: storePhone });
-      await db.settings.put({ key: 'storeAddress', value: storeAddress });
-      notify('Store profile details updated successfully!');
+      await db.settings.put({ key: 'factoryName', value: factoryName });
+      await db.settings.put({ key: 'factoryPhone', value: factoryPhone });
+      await db.settings.put({ key: 'factoryAddress', value: factoryAddress });
+      notify('Factory profile updated successfully!');
     } catch (err: any) {
-      notify('Failed to save store profile: ' + err.message, true);
-    }
-  }
-
-  async function handleQuickRefetch() {
-    if (isRefetching) return;
-    isRefetching = true;
-    try {
-      const res = await fetchMedExCatalog();
-      if (res.success) {
-        notify(`Updated MedEx catalog dataset (${res.count.toLocaleString()} medicines)!`);
-        await loadSettingsInfo();
-      } else {
-        notify('Catalog sync failed: ' + res.error, true);
-      }
-    } catch (err: any) {
-      notify('Catalog sync error: ' + err.message, true);
-    } finally {
-      isRefetching = false;
+      notify('Failed to save factory profile: ' + err.message, true);
     }
   }
 
   async function exportBackupJSON() {
     try {
-      const inventory = await db.inventory.toArray();
-      const sales = await db.sales.toArray();
+      const clients = await db.clients.toArray();
+      const fabricTypes = await db.fabricTypes.toArray();
+      const dias = await db.dias.toArray();
+      const receivedRecords = await db.receivedRecords.toArray();
+      const deliveredRecords = await db.deliveredRecords.toArray();
       const settings = await db.settings.toArray();
 
       const backupData = {
         exportedAt: new Date().toISOString(),
         version: 1,
-        inventory,
-        sales,
+        clients,
+        fabricTypes,
+        dias,
+        receivedRecords,
+        deliveredRecords,
         settings,
       };
 
@@ -148,7 +115,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `halal_pharmacy_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      link.download = `knitting_factory_backup_${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -168,26 +135,34 @@
       const text = await file.text();
       const data = JSON.parse(text);
 
-      if (!data.inventory || !Array.isArray(data.inventory)) {
-        throw new Error('Invalid backup file format');
-      }
-
-      await db.transaction('rw', db.inventory, db.sales, db.settings, async () => {
-        if (data.inventory.length > 0) {
-          await db.inventory.clear();
-          await db.inventory.bulkAdd(data.inventory);
+      await db.transaction('rw', [db.clients, db.fabricTypes, db.dias, db.receivedRecords, db.deliveredRecords, db.settings], async () => {
+        if (data.clients && Array.isArray(data.clients)) {
+          await db.clients.clear();
+          await db.clients.bulkAdd(data.clients);
         }
-        if (data.sales && Array.isArray(data.sales) && data.sales.length > 0) {
-          await db.sales.clear();
-          await db.sales.bulkAdd(data.sales);
+        if (data.fabricTypes && Array.isArray(data.fabricTypes)) {
+          await db.fabricTypes.clear();
+          await db.fabricTypes.bulkAdd(data.fabricTypes);
         }
-        if (data.settings && Array.isArray(data.settings) && data.settings.length > 0) {
+        if (data.dias && Array.isArray(data.dias)) {
+          await db.dias.clear();
+          await db.dias.bulkAdd(data.dias);
+        }
+        if (data.receivedRecords && Array.isArray(data.receivedRecords)) {
+          await db.receivedRecords.clear();
+          await db.receivedRecords.bulkAdd(data.receivedRecords);
+        }
+        if (data.deliveredRecords && Array.isArray(data.deliveredRecords)) {
+          await db.deliveredRecords.clear();
+          await db.deliveredRecords.bulkAdd(data.deliveredRecords);
+        }
+        if (data.settings && Array.isArray(data.settings)) {
           await db.settings.clear();
           await db.settings.bulkAdd(data.settings);
         }
       });
 
-      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
+      window.dispatchEvent(new CustomEvent('db-updated'));
       await loadSettingsInfo();
       notify('Backup restored successfully!');
     } catch (err: any) {
@@ -195,96 +170,43 @@
     }
   }
 
-  async function seedSampleInventory() {
+  async function seedSampleData() {
     try {
-      const sampleItems = [
-        {
-          brand_name: 'Napa Extra',
-          generic_names: ['Paracetamol', 'Caffeine'],
-          power: '500 mg + 65 mg',
-          dosage_form: 'Tablet',
-          manufacturer: 'Beximco Pharmaceuticals Ltd.',
-          wholesale_price: 2.2,
-          unit_price: 3.0,
-          stock_quantity: 120,
-          expiry_month: '2026-11',
-          added_at: new Date().toISOString(),
-          source: 'manual' as const,
-        },
-        {
-          brand_name: 'Seclo',
-          generic_names: ['Omeprazole'],
-          power: '20 mg',
-          dosage_form: 'Capsule',
-          manufacturer: 'Square Pharmaceuticals PLC',
-          wholesale_price: 5.5,
-          unit_price: 7.0,
-          stock_quantity: 85,
-          expiry_month: '2027-03',
-          added_at: new Date().toISOString(),
-          source: 'manual' as const,
-        },
-        {
-          brand_name: '3-C',
-          generic_names: ['Cefixime Trihydrate'],
-          power: '200 mg',
-          dosage_form: 'Capsule',
-          manufacturer: 'Edruc Limited',
-          wholesale_price: 28.0,
-          unit_price: 35.0,
-          stock_quantity: 40,
-          expiry_month: '2026-08',
-          added_at: new Date().toISOString(),
-          source: 'manual' as const,
-        },
-        {
-          brand_name: 'Sergel',
-          generic_names: ['Esomeprazole Magnesium Trihydrate'],
-          power: '20 mg',
-          dosage_form: 'Tablet',
-          manufacturer: 'Healthcare Pharmaceuticals Ltd.',
-          wholesale_price: 6.0,
-          unit_price: 8.0,
-          stock_quantity: 8,
-          expiry_month: '2026-05',
-          added_at: new Date().toISOString(),
-          source: 'manual' as const,
-        },
-      ];
+      await seedInitialData();
 
-      await db.inventory.bulkAdd(sampleItems);
-      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
+      // Seed sample client if none
+      if ((await db.clients.count()) === 0) {
+        await db.clients.bulkAdd([
+          { name: 'Apex Fashion Ltd.', phone: '+880 1711-123456', address: 'Gazipur, Dhaka', created_at: new Date().toISOString() },
+          { name: 'Ha-Meem Group', phone: '+880 1819-654321', address: 'Narayanganj, Dhaka', created_at: new Date().toISOString() },
+          { name: 'Square Fashions PLC', phone: '+880 1912-987654', address: 'Bhaluka, Mymensingh', created_at: new Date().toISOString() }
+        ]);
+      }
+
+      window.dispatchEvent(new CustomEvent('db-updated'));
       await loadSettingsInfo();
-      notify('Successfully added sample medicines to inventory!');
+      notify('Sample clients, fabric types, and dias loaded!');
     } catch (e: any) {
       notify('Seed error: ' + e.message, true);
     }
   }
 
-  async function clearInventoryData() {
-    if (!confirm('Are you sure you want to clear all inventory stock items?')) return;
-    await db.inventory.clear();
-    window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
-    await loadSettingsInfo();
-    notify('Local inventory cleared.');
-  }
-
   async function clearAllData() {
-    if (!confirm('WARNING: This will erase all inventory stock, sales records, and held bills from local IndexedDB storage. Continue?')) return;
-    await db.inventory.clear();
-    await db.sales.clear();
-    await db.heldBills.clear();
-    window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
+    if (!confirm('WARNING: This will erase all clients, received records, and delivered records from local browser database. Continue?')) return;
+    await db.clients.clear();
+    await db.receivedRecords.clear();
+    await db.deliveredRecords.clear();
+    window.dispatchEvent(new CustomEvent('db-updated'));
     await loadSettingsInfo();
-    notify('All local database records cleared.');
+    notify('Local database cleared.');
   }
 </script>
 
 <div class="h-full flex flex-col overflow-y-auto p-6 space-y-6">
   <!-- Title Header -->
   <div>
-    <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Settings & Profile</h2>
-    <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">Redesigned configuration panel for store profile, theme, database backups, and MedEx sync.</p>
+    <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Settings & Configuration</h2>
+    <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">Manage factory identity, AMOLED dark mode theme, backup JSON, and database tools.</p>
   </div>
 
   <!-- Feedback Banner -->
@@ -306,63 +228,64 @@
   {/if}
 
   <!-- System Overview Cards -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
     <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black">
-      <span class="text-xs text-slate-500 dark:text-neutral-400 font-medium">MedEx Catalogue</span>
-      <div class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{catalogCount.toLocaleString()}</div>
-      <span class="text-[10px] text-emerald-600 font-medium">Offline dataset</span>
+      <span class="text-xs text-slate-500 dark:text-neutral-400 font-medium">Clients</span>
+      <div class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{clientsCount}</div>
+      <span class="text-[10px] text-emerald-600 font-medium">Registered</span>
     </div>
 
     <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black">
-      <span class="text-xs text-slate-500 dark:text-neutral-400 font-medium">Inventory Stock</span>
-      <div class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{inventoryCount.toLocaleString()}</div>
-      <span class="text-[10px] text-blue-600 font-medium">Active items</span>
+      <span class="text-xs text-slate-500 dark:text-neutral-400 font-medium">Fabric Types</span>
+      <div class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{fabricCount}</div>
+      <span class="text-[10px] text-blue-600 font-medium">Active list</span>
     </div>
 
     <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black">
-      <span class="text-xs text-slate-500 dark:text-neutral-400 font-medium">Sales Records</span>
-      <div class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{salesCount.toLocaleString()}</div>
-      <span class="text-[10px] text-purple-600 font-medium">Audit logs</span>
+      <span class="text-xs text-slate-500 dark:text-neutral-400 font-medium">Dias</span>
+      <div class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{diaCount}</div>
+      <span class="text-[10px] text-purple-600 font-medium">Preset dias</span>
     </div>
 
     <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black">
-      <span class="text-xs text-slate-500 dark:text-neutral-400 font-medium">Held Bills</span>
-      <div class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{heldCount.toLocaleString()}</div>
-      <span class="text-[10px] text-amber-600 font-medium">Pending checkout</span>
+      <span class="text-xs text-slate-500 dark:text-neutral-400 font-medium">Received Logs</span>
+      <div class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{receivedCount}</div>
+      <span class="text-[10px] text-blue-600 font-medium">Inward fabric</span>
+    </div>
+
+    <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black">
+      <span class="text-xs text-slate-500 dark:text-neutral-400 font-medium">Delivered Logs</span>
+      <div class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{deliveredCount}</div>
+      <span class="text-[10px] text-emerald-600 font-medium">Outward fabric</span>
     </div>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-    <!-- Store Profile Configuration (7 Cols) -->
+    <!-- Factory Profile Configuration (7 Cols) -->
     <div class="lg:col-span-7">
-      <Card title="Store Profile & Receipt Header" description="Configure pharmacy identity appearing on receipts and invoices">
-        <form onsubmit={saveStoreProfile} class="space-y-4">
+      <Card title="Knitting Factory Details" description="Configure factory identity details">
+        <form onsubmit={saveFactoryProfile} class="space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label for="store-name-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Pharmacy Name</label>
-              <Input id="store-name-input" bind:value={storeName} required />
+            <div class="md:col-span-2">
+              <label for="factory-name-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Factory Name</label>
+              <Input id="factory-name-input" bind:value={factoryName} required />
             </div>
 
             <div>
-              <label for="store-slogan-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Tagline / Subtitle</label>
-              <Input id="store-slogan-input" bind:value={storeSlogan} />
+              <label for="factory-phone-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Contact Phone Number</label>
+              <Input id="factory-phone-input" bind:value={factoryPhone} />
             </div>
 
             <div>
-              <label for="store-phone-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Contact Phone Number</label>
-              <Input id="store-phone-input" bind:value={storePhone} />
-            </div>
-
-            <div>
-              <label for="store-address-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Address / Location</label>
-              <Input id="store-address-input" bind:value={storeAddress} />
+              <label for="factory-address-input" class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Address / Location</label>
+              <Input id="factory-address-input" bind:value={factoryAddress} />
             </div>
           </div>
 
           <div class="pt-3 border-t border-slate-200 dark:border-neutral-800 flex justify-end">
             <Button type="submit" variant="default" class="font-bold flex items-center gap-2 cursor-pointer">
               <Store class="h-4 w-4" />
-              <span>Save Profile Details</span>
+              <span>Save Factory Profile</span>
             </Button>
           </div>
         </form>
@@ -371,7 +294,7 @@
 
     <!-- Appearance & AMOLED Dark Mode (5 Cols) -->
     <div class="lg:col-span-5">
-      <Card title="Appearance & Dark Mode" description="Configure absolute AMOLED black theme preferences">
+      <Card title="Appearance & Dark Mode" description="Configure dark theme preferences">
         <div class="space-y-4">
           <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-slate-50 dark:bg-black flex items-center justify-between">
             <div class="flex items-center gap-3">
@@ -403,28 +326,7 @@
               <span class="text-xs font-bold text-slate-900 dark:text-slate-100">System Typography</span>
               <Badge variant="outline" class="text-[10px]">SolaimanLipi</Badge>
             </div>
-            <p class="text-xs text-slate-500 dark:text-neutral-400">Default custom typography active across all screens, tables, and receipts.</p>
-          </div>
-
-          <!-- Catalog Refetch Card -->
-          <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-900 dark:text-slate-100">MedEx Catalog Refetch</span>
-              <Badge variant="success" class="text-[10px]">Auto Sync</Badge>
-            </div>
-            <p class="text-xs text-slate-500 dark:text-neutral-400">
-              Last synced: <span class="font-medium text-slate-800 dark:text-slate-200">{lastRefetchText}</span>
-            </p>
-
-            <Button
-              variant="default"
-              onclick={handleQuickRefetch}
-              disabled={isRefetching}
-              class="w-full flex items-center justify-center gap-2 font-bold cursor-pointer"
-            >
-              <RefreshCw class={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
-              <span>{isRefetching ? 'Refetching Catalog...' : 'Manual Catalog Refetch'}</span>
-            </Button>
+            <p class="text-xs text-slate-500 dark:text-neutral-400">Bengali / Custom typography active across all screens.</p>
           </div>
         </div>
       </Card>
@@ -439,7 +341,7 @@
         <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-slate-50/50 dark:bg-black flex items-center justify-between">
           <div>
             <h4 class="font-bold text-sm text-slate-900 dark:text-slate-100">Export Backup File</h4>
-            <p class="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Download full database as JSON file</p>
+            <p class="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Download database as JSON file</p>
           </div>
           <Button variant="outline" onclick={exportBackupJSON} class="flex items-center gap-1.5 cursor-pointer">
             <Download class="h-4 w-4" />
@@ -462,19 +364,14 @@
       </div>
 
       <div class="pt-3 border-t border-slate-200 dark:border-neutral-800 flex flex-wrap gap-3">
-        <Button variant="secondary" onclick={seedSampleInventory} class="flex items-center gap-1.5 text-xs cursor-pointer">
+        <Button variant="secondary" onclick={seedSampleData} class="flex items-center gap-1.5 text-xs cursor-pointer">
           <Layers class="h-4 w-4 text-emerald-600" />
-          <span>Load Sample Medicines</span>
-        </Button>
-
-        <Button variant="outline" onclick={clearInventoryData} class="flex items-center gap-1.5 text-xs text-amber-600 border-amber-300 dark:border-amber-800 cursor-pointer">
-          <Trash2 class="h-4 w-4" />
-          <span>Clear Inventory</span>
+          <span>Seed Default Fabrics, Dias & Clients</span>
         </Button>
 
         <Button variant="destructive" onclick={clearAllData} class="flex items-center gap-1.5 text-xs ml-auto cursor-pointer">
           <Database class="h-4 w-4" />
-          <span>Reset Entire App Database</span>
+          <span>Reset App Database</span>
         </Button>
       </div>
     </div>
@@ -484,10 +381,10 @@
   <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-black text-xs text-slate-500 space-y-1">
     <div class="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-300">
       <ShieldCheck class="h-4 w-4 text-emerald-600" />
-      <span>100% Offline POS System</span>
+      <span>100% Offline Knitting Factory WebApp</span>
     </div>
     <p>
-      The Halal Pharmacy runs entirely inside your web browser using local IndexedDB storage. No server connection is required to make sales, view reports, or manage inventory stock.
+      Runs entirely inside your web browser using local IndexedDB storage. Meant for PC screens to keep track of received and delivered fabric records effortlessly without requiring an internet connection.
     </p>
   </div>
 </div>

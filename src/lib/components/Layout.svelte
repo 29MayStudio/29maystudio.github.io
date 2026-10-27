@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
-    ShoppingCart,
-    LayoutDashboard,
+    Layers,
     PlusCircle,
     Receipt,
     Settings,
@@ -9,17 +8,16 @@
     Sun,
     Wifi,
     WifiOff,
-    RefreshCw
+    Home
   } from 'lucide-svelte';
   import { onMount } from 'svelte';
-  import { syncCatalogWithMedEx, isSyncing, syncProgress } from '../sync';
 
   interface Props {
     activeTab: string;
     children?: any;
   }
 
-  let { activeTab = $bindable('sale'), children }: Props = $props();
+  let { activeTab = $bindable('home'), children }: Props = $props();
 
   let isDarkMode = $state(false);
   let isOnline = $state(navigator.onLine);
@@ -76,16 +74,15 @@
   }
 
   const navItems = [
-    { id: 'sale', label: 'Sale (POS)', icon: ShoppingCart },
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'add-medicine', label: 'Add Medicine', icon: PlusCircle },
-    { id: 'records', label: 'Sales Records', icon: Receipt },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'home', label: 'Home (Received & Delivered)', icon: Home },
+    { id: 'add', label: 'Add (Clients, Fabrics & Dias)', icon: PlusCircle },
+    { id: 'records', label: 'Records & Audit Logs', icon: Receipt },
+    { id: 'settings', label: 'Settings & Backup', icon: Settings },
   ];
 </script>
 
 <div class="flex flex-col md:flex-row h-screen h-[100dvh] bg-slate-100 dark:bg-black text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
-  <!-- Sidebar / Top Navigation Header -->
+  <!-- Sidebar Navigation -->
   <aside class="w-full md:w-16 h-14 md:h-full bg-white dark:bg-black border-b md:border-b-0 md:border-r border-slate-200 dark:border-neutral-800 flex flex-row md:flex-col items-center justify-between px-3 py-1.5 md:py-4 z-20 shrink-0">
     <!-- Navigation Links -->
     <nav class="flex flex-row md:flex-col items-center justify-center md:justify-start gap-1 md:gap-0 md:space-y-3 flex-1 md:w-full md:px-2">
@@ -115,28 +112,9 @@
       {/each}
     </nav>
 
-    <!-- Right/Bottom Actions & Status -->
+    <!-- Bottom Actions & Status -->
     <div class="flex flex-row md:flex-col items-center gap-1 md:gap-0 md:space-y-3 shrink-0 md:w-full md:px-2 border-l md:border-l-0 md:border-t border-slate-100 dark:border-neutral-800 pl-2 md:pl-0 md:pt-3">
-      <!-- Sync Button -->
-      <div class="relative flex items-center justify-center">
-        <button
-          type="button"
-          onclick={() => syncCatalogWithMedEx(true)}
-          disabled={$isSyncing}
-          onmouseenter={() => handleMouseEnter('sync')}
-          onmouseleave={handleMouseLeave}
-          class="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-neutral-900 disabled:opacity-50 transition-colors cursor-pointer"
-        >
-          <RefreshCw class={`w-5 h-5 ${$isSyncing ? 'animate-spin text-emerald-600' : ''}`} />
-        </button>
-        {#if hoveredTab === 'sync'}
-          <div class="absolute top-12 md:top-auto md:left-16 z-50 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap pointer-events-none">
-            {$isSyncing ? `Syncing (${$syncProgress}%)` : 'Sync MedEx Catalog'}
-          </div>
-        {/if}
-      </div>
-
-      <!-- Online / Offline Indicator -->
+      <!-- Network Indicator -->
       <div class="relative flex items-center justify-center">
         <div
           onmouseenter={() => handleMouseEnter('network')}
@@ -153,7 +131,7 @@
         </div>
         {#if hoveredTab === 'network'}
           <div class="absolute top-12 md:top-auto md:left-16 z-50 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap pointer-events-none">
-            {isOnline ? 'Online (Catalog Sync Ready)' : 'Offline Mode (Local Storage)'}
+            {isOnline ? 'Online' : 'Offline Mode (Local Storage)'}
           </div>
         {/if}
       </div>
