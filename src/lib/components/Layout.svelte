@@ -1,16 +1,9 @@
 <script lang="ts">
   import {
-    Layers,
     PlusCircle,
     Receipt,
-    Settings,
-    Moon,
-    Sun,
-    Wifi,
-    WifiOff,
     Home
   } from 'lucide-svelte';
-  import { onMount } from 'svelte';
 
   interface Props {
     activeTab: string;
@@ -19,47 +12,8 @@
 
   let { activeTab = $bindable('home'), children }: Props = $props();
 
-  let isDarkMode = $state(false);
-  let isOnline = $state(navigator.onLine);
   let hoveredTab = $state<string | null>(null);
   let hoverTimer: any = null;
-
-  onMount(() => {
-    // Check dark mode preference or existing class
-    if (
-      localStorage.theme === 'dark' ||
-      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    ) {
-      isDarkMode = true;
-      document.documentElement.classList.add('dark');
-    } else {
-      isDarkMode = false;
-      document.documentElement.classList.remove('dark');
-    }
-
-    const updateOnlineStatus = () => {
-      isOnline = navigator.onLine;
-    };
-
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-
-    return () => {
-      window.removeEventListener('online', updateOnlineStatus);
-      window.removeEventListener('offline', updateOnlineStatus);
-    };
-  });
-
-  function toggleDarkMode() {
-    isDarkMode = !isDarkMode;
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.theme = 'dark';
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.theme = 'light';
-    }
-  }
 
   function handleMouseEnter(id: string) {
     if (hoverTimer) clearTimeout(hoverTimer);
@@ -75,9 +29,8 @@
 
   const navItems = [
     { id: 'home', label: 'Home (Received & Delivered)', icon: Home },
-    { id: 'add', label: 'Add (Clients, Fabrics & Dias)', icon: PlusCircle },
+    { id: 'add', label: 'Add (Clients, Yarn Types & Dias)', icon: PlusCircle },
     { id: 'records', label: 'Records & Audit Logs', icon: Receipt },
-    { id: 'settings', label: 'Settings & Backup', icon: Settings },
   ];
 </script>
 
@@ -111,53 +64,6 @@
         </div>
       {/each}
     </nav>
-
-    <!-- Bottom Actions & Status -->
-    <div class="flex flex-row md:flex-col items-center gap-1 md:gap-0 md:space-y-3 shrink-0 md:w-full md:px-2 border-l md:border-l-0 md:border-t border-slate-100 dark:border-neutral-800 pl-2 md:pl-0 md:pt-3">
-      <!-- Network Indicator -->
-      <div class="relative flex items-center justify-center">
-        <div
-          onmouseenter={() => handleMouseEnter('network')}
-          onmouseleave={handleMouseLeave}
-          role="status"
-          aria-label="Network status"
-          class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center cursor-default"
-        >
-          {#if isOnline}
-            <Wifi class="w-5 h-5 text-emerald-500" />
-          {:else}
-            <WifiOff class="w-5 h-5 text-amber-500" />
-          {/if}
-        </div>
-        {#if hoveredTab === 'network'}
-          <div class="absolute top-12 md:top-auto md:left-16 z-50 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap pointer-events-none">
-            {isOnline ? 'Online' : 'Offline Mode (Local Storage)'}
-          </div>
-        {/if}
-      </div>
-
-      <!-- Dark Mode Toggle -->
-      <div class="relative flex items-center justify-center">
-        <button
-          type="button"
-          onclick={toggleDarkMode}
-          onmouseenter={() => handleMouseEnter('theme')}
-          onmouseleave={handleMouseLeave}
-          class="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-neutral-900 transition-colors cursor-pointer"
-        >
-          {#if isDarkMode}
-            <Sun class="w-5 h-5 text-amber-400" />
-          {:else}
-            <Moon class="w-5 h-5 text-slate-600" />
-          {/if}
-        </button>
-        {#if hoveredTab === 'theme'}
-          <div class="absolute top-12 md:top-auto md:left-16 z-50 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap pointer-events-none">
-            {isDarkMode ? 'Light Mode' : 'AMOLED Dark Mode'}
-          </div>
-        {/if}
-      </div>
-    </div>
   </aside>
 
   <!-- Main Content Area -->

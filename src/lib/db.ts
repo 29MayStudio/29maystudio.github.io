@@ -22,28 +22,29 @@ export interface ReceivedRecord {
   id?: number;
   client_id: number;
   client_name: string;
-  fabric_type: string;
-  dia: string;
-  gsm?: string;
-  rolls?: number;
-  weight_kg: number;
   date: string; // YYYY-MM-DD
+  ch_no: string; // Challan Number
+  yarn_count: string;
+  lot?: string; // Optional
+  bags: number;
+  weight_kg: number; // Weight in Kg per bag/unit or average
+  total_weight_kg: number; // Total weight in Kg
   timestamp: string; // ISO string
-  note?: string;
 }
 
 export interface DeliveredRecord {
   id?: number;
   client_id: number;
   client_name: string;
-  fabric_type: string;
-  dia: string;
-  gsm?: string;
-  rolls?: number;
-  weight_kg: number;
   date: string; // YYYY-MM-DD
+  ch_no: string; // Challan Number
+  yarn_count: string;
+  lot?: string; // Optional
+  dia: string; // autofill suggest from added data
+  rolls: number;
+  weight_kg: number; // Weight in Kg
+  total_weight_kg: number; // Total weight in Kg
   timestamp: string; // ISO string
-  note?: string;
 }
 
 export interface AppSetting {
@@ -66,8 +67,8 @@ export class KnittingFactoryDB extends Dexie {
       clients: '++id, name, phone, created_at',
       fabricTypes: '++id, &name',
       dias: '++id, &value',
-      receivedRecords: '++id, client_id, client_name, fabric_type, dia, date, timestamp',
-      deliveredRecords: '++id, client_id, client_name, fabric_type, dia, date, timestamp',
+      receivedRecords: '++id, client_id, client_name, ch_no, yarn_count, date, timestamp',
+      deliveredRecords: '++id, client_id, client_name, ch_no, yarn_count, dia, date, timestamp',
       settings: '&key',
     });
   }

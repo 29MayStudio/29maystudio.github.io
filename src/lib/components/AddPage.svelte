@@ -10,7 +10,6 @@
 
   // Form states
   let clientName = $state('');
-  let clientPhone = $state('');
   let clientAddress = $state('');
   let clientError = $state('');
   let clientSuccess = $state('');
@@ -57,12 +56,10 @@
 
       await db.clients.add({
         name: clientName.trim(),
-        phone: clientPhone.trim() || undefined,
         address: clientAddress.trim() || undefined,
         created_at: new Date().toISOString()
       });
       clientName = '';
-      clientPhone = '';
       clientAddress = '';
       clientSuccess = 'Client added successfully!';
       await loadAllData();
@@ -87,7 +84,7 @@
     fabricError = '';
     fabricSuccess = '';
     if (!fabricTypeName.trim()) {
-      fabricError = 'Fabric type name is required.';
+      fabricError = 'Yarn type name is required.';
       return;
     }
 
@@ -96,18 +93,18 @@
         name: fabricTypeName.trim()
       });
       fabricTypeName = '';
-      fabricSuccess = 'Fabric type added!';
+      fabricSuccess = 'Yarn type added!';
       await loadAllData();
       window.dispatchEvent(new CustomEvent('db-updated'));
       setTimeout(() => (fabricSuccess = ''), 3000);
     } catch (err: any) {
-      fabricError = 'Fabric type already exists or invalid.';
+      fabricError = 'Yarn type already exists or invalid.';
     }
   }
 
   async function handleDeleteFabricType(id?: number) {
     if (!id) return;
-    if (confirm('Delete this fabric type?')) {
+    if (confirm('Delete this yarn type?')) {
       await db.fabricTypes.delete(id);
       await loadAllData();
       window.dispatchEvent(new CustomEvent('db-updated'));
@@ -155,7 +152,7 @@
         Data Management
       </h1>
       <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">
-        Add and manage Clients, Fabric Types, and Dias for your knitting factory.
+        Add and manage Clients, Yarn Types, and Dias for your knitting factory.
       </p>
     </div>
 
@@ -183,7 +180,7 @@
         }`}
       >
         <Layers class="w-4 h-4" />
-        Fabric Types ({fabricTypes.length})
+        Yarn Types ({fabricTypes.length})
       </button>
       <button
         type="button"
@@ -246,19 +243,6 @@
             </div>
 
             <div>
-              <label for="client-phone-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1.5">
-                Phone Number (Optional)
-              </label>
-              <input
-                id="client-phone-input"
-                type="text"
-                bind:value={clientPhone}
-                placeholder="e.g. +880 1700-000000"
-                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-              />
-            </div>
-
-            <div>
               <label for="client-address-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1.5">
                 Address / Location (Optional)
               </label>
@@ -305,7 +289,6 @@
               <thead class="text-xs uppercase bg-slate-50 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 border-b border-slate-200 dark:border-neutral-700">
                 <tr>
                   <th class="px-4 py-3 rounded-tl-xl">Client Name</th>
-                  <th class="px-4 py-3">Phone</th>
                   <th class="px-4 py-3">Address</th>
                   <th class="px-4 py-3 text-right rounded-tr-xl">Action</th>
                 </tr>
@@ -315,9 +298,6 @@
                   <tr class="hover:bg-slate-50 dark:hover:bg-neutral-800/50 transition-colors">
                     <td class="px-4 py-3 font-semibold text-slate-900 dark:text-white">
                       {client.name}
-                    </td>
-                    <td class="px-4 py-3 text-slate-600 dark:text-neutral-300">
-                      {client.phone || '-'}
                     </td>
                     <td class="px-4 py-3 text-slate-500 dark:text-neutral-400 text-xs">
                       {client.address || '-'}
@@ -349,8 +329,8 @@
               <Layers class="w-5 h-5" />
             </div>
             <div>
-              <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Add Fabric Type</h2>
-              <p class="text-xs text-slate-500 dark:text-neutral-400">e.g., Single Jersey, Rib, Fleece</p>
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Add Yarn Type</h2>
+              <p class="text-xs text-slate-500 dark:text-neutral-400">e.g., 30s Cotton, 28s Polyester, Melange</p>
             </div>
           </div>
 
@@ -371,13 +351,13 @@
           <form id="add-fabric-form" onsubmit={handleAddFabricType} class="space-y-4">
             <div>
               <label for="fabric-name-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-neutral-400 mb-1.5">
-                Fabric Type Name *
+                Yarn Type Name *
               </label>
               <input
                 id="fabric-name-input"
                 type="text"
                 bind:value={fabricTypeName}
-                placeholder="e.g. Single Jersey 28s"
+                placeholder="e.g. 30s Cotton"
                 class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
                 required
               />
@@ -391,7 +371,7 @@
             form="add-fabric-form"
             class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 text-sm cursor-pointer"
           >
-            <Plus class="w-4 h-4" /> Save Fabric Type
+            <Plus class="w-4 h-4" /> Save Yarn Type
           </button>
         </div>
       </div>
@@ -399,7 +379,7 @@
       <!-- Fabrics List -->
       <div class="lg:col-span-7 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl p-6 shadow-sm flex flex-col">
         <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center justify-between">
-          <span>Active Fabric Types</span>
+          <span>Active Yarn Types</span>
           <span class="text-xs bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-neutral-300 px-2.5 py-1 rounded-full">
             Total: {fabricTypes.length}
           </span>
