@@ -1434,37 +1434,36 @@
   </div>
 </Dialog>
 
-<!-- PRINT-ONLY STATEMENT CHART (A4 LANDSCAPE) -->
+<!-- PRINT-ONLY STATEMENT CHART (A4 LANDSCAPE, MINIMAL DESIGN) -->
 {#if selectedClient}
-  <div class="hidden print:block statement-print-area p-4 font-sans text-black">
-    <!-- Statement Header -->
-    <div class="text-center border-b-2 border-black pb-3 mb-4">
-      <h1 class="text-2xl font-bold tracking-tight">M/S A.B.S Knit Fabrics</h1>
-      <h2 class="text-lg font-semibold mt-0.5">Client Statement — {selectedClient.name}</h2>
-      {#if selectedClient.address}
-        <p class="text-xs text-neutral-600 mt-0.5">📍 {selectedClient.address}</p>
-      {/if}
-      <p class="text-xs font-mono mt-1 text-neutral-700">
-        Statement Period: {statementStartDate || 'Beginning'} to {statementEndDate || 'Present'}
-      </p>
+  <div class="hidden print:block statement-print-area text-black font-sans w-full">
+    <!-- Header: Client Name & Date Range -->
+    <div class="mb-3 border-b border-black pb-2 flex items-baseline justify-between">
+      <div>
+        <span class="text-[10px] uppercase tracking-wider text-neutral-600 block font-semibold">Client Statement</span>
+        <h1 class="text-xl font-bold text-black m-0 leading-tight">{selectedClient.name}</h1>
+      </div>
+      <div class="text-right text-xs text-black font-mono">
+        <span class="font-bold">Date Range:</span> {statementStartDate || 'Beginning'} &mdash; {statementEndDate || 'Present'}
+      </div>
     </div>
 
     <!-- Dual Side-By-Side Tally Charts in Landscape -->
-    <div class="grid grid-cols-2 gap-4 text-xs">
+    <div class="grid grid-cols-2 gap-3 text-xs">
 
       <!-- LEFT: RECEIVED TALLY CHART -->
-      <div class="border border-black p-2 rounded">
-        <div class="font-bold border-b border-black pb-1 mb-2 text-center text-sm bg-neutral-100">
-          RECEIVED TALLY CHART
+      <div class="border border-black p-1.5">
+        <div class="font-bold border-b border-black pb-1 mb-1 text-center text-xs tracking-wide uppercase bg-neutral-100">
+          Received Tally
         </div>
         <table class="w-full text-left border-collapse text-[10px]">
           <thead>
             <tr class="border-b border-black font-bold bg-neutral-50">
-              <th class="p-1">Date</th>
-              <th class="p-1">CH No.</th>
-              <th class="p-1">Yarn Count</th>
-              <th class="p-1">Lot</th>
-              <th class="p-1 text-center">Bags</th>
+              <th class="p-1 border-r border-neutral-300">Date</th>
+              <th class="p-1 border-r border-neutral-300">CH No.</th>
+              <th class="p-1 border-r border-neutral-300">Yarn Count</th>
+              <th class="p-1 border-r border-neutral-300">Lot</th>
+              <th class="p-1 border-r border-neutral-300 text-center">Bags</th>
               <th class="p-1 text-right">Weight (Kg)</th>
             </tr>
           </thead>
@@ -1477,24 +1476,24 @@
               {#each filteredStatementReceived as rec}
                 {#if rec.items && rec.items.length > 0}
                   {#each rec.items as item, itemIdx}
-                    <tr class="border-b border-neutral-300">
+                    <tr class="border-b border-neutral-200">
                       {#if itemIdx === 0}
-                        <td rowspan={rec.items.length} class="p-1 align-top font-mono">{rec.date}</td>
-                        <td rowspan={rec.items.length} class="p-1 align-top font-semibold">{rec.ch_no}</td>
+                        <td rowspan={rec.items.length} class="p-1 align-top font-mono border-r border-neutral-300">{rec.date}</td>
+                        <td rowspan={rec.items.length} class="p-1 align-top font-semibold border-r border-neutral-300">{rec.ch_no}</td>
                       {/if}
-                      <td class="p-1">{item.yarn_count}</td>
-                      <td class="p-1">{item.lot || '-'}</td>
-                      <td class="p-1 text-center font-mono">{item.bags}</td>
+                      <td class="p-1 border-r border-neutral-300">{item.yarn_count}</td>
+                      <td class="p-1 border-r border-neutral-300">{item.lot || '-'}</td>
+                      <td class="p-1 border-r border-neutral-300 text-center font-mono">{item.bags}</td>
                       <td class="p-1 text-right font-mono font-bold">{item.weight_kg}</td>
                     </tr>
                   {/each}
                 {:else}
-                  <tr class="border-b border-neutral-300">
-                    <td class="p-1 font-mono">{rec.date}</td>
-                    <td class="p-1 font-semibold">{rec.ch_no}</td>
-                    <td class="p-1">{rec.yarn_count}</td>
-                    <td class="p-1">{rec.lot || '-'}</td>
-                    <td class="p-1 text-center font-mono">{rec.bags}</td>
+                  <tr class="border-b border-neutral-200">
+                    <td class="p-1 font-mono border-r border-neutral-300">{rec.date}</td>
+                    <td class="p-1 font-semibold border-r border-neutral-300">{rec.ch_no}</td>
+                    <td class="p-1 border-r border-neutral-300">{rec.yarn_count}</td>
+                    <td class="p-1 border-r border-neutral-300">{rec.lot || '-'}</td>
+                    <td class="p-1 border-r border-neutral-300 text-center font-mono">{rec.bags}</td>
                     <td class="p-1 text-right font-mono font-bold">{rec.weight_kg}</td>
                   </tr>
                 {/if}
@@ -1503,8 +1502,8 @@
           </tbody>
           <tfoot>
             <tr class="border-t-2 border-black font-bold bg-neutral-100">
-              <td colspan="4" class="p-1 text-right">Received Total:</td>
-              <td class="p-1 text-center font-mono">{statementRxTotalBags}</td>
+              <td colspan="4" class="p-1 text-right border-r border-neutral-300">Total:</td>
+              <td class="p-1 text-center font-mono border-r border-neutral-300">{statementRxTotalBags}</td>
               <td class="p-1 text-right font-mono">{statementRxTotalWeight} Kg</td>
             </tr>
           </tfoot>
@@ -1512,19 +1511,19 @@
       </div>
 
       <!-- RIGHT: DELIVERED TALLY CHART -->
-      <div class="border border-black p-2 rounded">
-        <div class="font-bold border-b border-black pb-1 mb-2 text-center text-sm bg-neutral-100">
-          DELIVERED TALLY CHART
+      <div class="border border-black p-1.5">
+        <div class="font-bold border-b border-black pb-1 mb-1 text-center text-xs tracking-wide uppercase bg-neutral-100">
+          Delivered Tally
         </div>
         <table class="w-full text-left border-collapse text-[10px]">
           <thead>
             <tr class="border-b border-black font-bold bg-neutral-50">
-              <th class="p-1">Date</th>
-              <th class="p-1">CH No.</th>
-              <th class="p-1">Yarn Count</th>
-              <th class="p-1">Lot</th>
-              <th class="p-1">Dia</th>
-              <th class="p-1 text-center">Rolls</th>
+              <th class="p-1 border-r border-neutral-300">Date</th>
+              <th class="p-1 border-r border-neutral-300">CH No.</th>
+              <th class="p-1 border-r border-neutral-300">Yarn Count</th>
+              <th class="p-1 border-r border-neutral-300">Lot</th>
+              <th class="p-1 border-r border-neutral-300">Dia</th>
+              <th class="p-1 border-r border-neutral-300 text-center">Rolls</th>
               <th class="p-1 text-right">Weight (Kg)</th>
             </tr>
           </thead>
@@ -1537,26 +1536,26 @@
               {#each filteredStatementDelivered as del}
                 {#if del.items && del.items.length > 0}
                   {#each del.items as item, itemIdx}
-                    <tr class="border-b border-neutral-300">
+                    <tr class="border-b border-neutral-200">
                       {#if itemIdx === 0}
-                        <td rowspan={del.items.length} class="p-1 align-top font-mono">{del.date}</td>
-                        <td rowspan={del.items.length} class="p-1 align-top font-semibold">{del.ch_no}</td>
+                        <td rowspan={del.items.length} class="p-1 align-top font-mono border-r border-neutral-300">{del.date}</td>
+                        <td rowspan={del.items.length} class="p-1 align-top font-semibold border-r border-neutral-300">{del.ch_no}</td>
                       {/if}
-                      <td class="p-1">{item.yarn_count}</td>
-                      <td class="p-1">{item.lot || '-'}</td>
-                      <td class="p-1 font-semibold">{item.dia}</td>
-                      <td class="p-1 text-center font-mono">{item.rolls}</td>
+                      <td class="p-1 border-r border-neutral-300">{item.yarn_count}</td>
+                      <td class="p-1 border-r border-neutral-300">{item.lot || '-'}</td>
+                      <td class="p-1 border-r border-neutral-300 font-semibold">{item.dia}</td>
+                      <td class="p-1 border-r border-neutral-300 text-center font-mono">{item.rolls}</td>
                       <td class="p-1 text-right font-mono font-bold">{item.weight_kg}</td>
                     </tr>
                   {/each}
                 {:else}
-                  <tr class="border-b border-neutral-300">
-                    <td class="p-1 font-mono">{del.date}</td>
-                    <td class="p-1 font-semibold">{del.ch_no}</td>
-                    <td class="p-1">{del.yarn_count}</td>
-                    <td class="p-1">{del.lot || '-'}</td>
-                    <td class="p-1 font-semibold">{del.dia}</td>
-                    <td class="p-1 text-center font-mono">{del.rolls}</td>
+                  <tr class="border-b border-neutral-200">
+                    <td class="p-1 font-mono border-r border-neutral-300">{del.date}</td>
+                    <td class="p-1 font-semibold border-r border-neutral-300">{del.ch_no}</td>
+                    <td class="p-1 border-r border-neutral-300">{del.yarn_count}</td>
+                    <td class="p-1 border-r border-neutral-300">{del.lot || '-'}</td>
+                    <td class="p-1 border-r border-neutral-300 font-semibold">{del.dia}</td>
+                    <td class="p-1 border-r border-neutral-300 text-center font-mono">{del.rolls}</td>
                     <td class="p-1 text-right font-mono font-bold">{del.weight_kg}</td>
                   </tr>
                 {/if}
@@ -1565,8 +1564,8 @@
           </tbody>
           <tfoot>
             <tr class="border-t-2 border-black font-bold bg-neutral-100">
-              <td colspan="5" class="p-1 text-right">Delivered Total:</td>
-              <td class="p-1 text-center font-mono">{statementDxTotalRolls}</td>
+              <td colspan="5" class="p-1 text-right border-r border-neutral-300">Total:</td>
+              <td class="p-1 text-center font-mono border-r border-neutral-300">{statementDxTotalRolls}</td>
               <td class="p-1 text-right font-mono">{statementDxTotalWeight} Kg</td>
             </tr>
           </tfoot>
