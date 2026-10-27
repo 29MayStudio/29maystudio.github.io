@@ -18,6 +18,21 @@ export interface Dia {
   value: string;
 }
 
+export interface ReceivedYarnItem {
+  yarn_count: string;
+  lot?: string;
+  bags: number;
+  weight_kg: number;
+}
+
+export interface DeliveredYarnItem {
+  yarn_count: string;
+  lot?: string;
+  dia: string;
+  rolls: number;
+  weight_kg: number;
+}
+
 export interface ReceivedRecord {
   id?: number;
   client_id: number;
@@ -27,8 +42,9 @@ export interface ReceivedRecord {
   yarn_count: string;
   lot?: string; // Optional
   bags: number;
-  weight_kg: number; // Weight in Kg per bag/unit or average
+  weight_kg: number; // Weight in Kg
   total_weight_kg: number; // Total weight in Kg
+  items?: ReceivedYarnItem[];
   timestamp: string; // ISO string
 }
 
@@ -44,6 +60,7 @@ export interface DeliveredRecord {
   rolls: number;
   weight_kg: number; // Weight in Kg
   total_weight_kg: number; // Total weight in Kg
+  items?: DeliveredYarnItem[];
   timestamp: string; // ISO string
 }
 

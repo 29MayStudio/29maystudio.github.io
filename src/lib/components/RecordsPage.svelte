@@ -140,7 +140,7 @@
   <!-- Header Title -->
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-      <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">All Records & Audit Logs</h2>
+      <h2 class="text-2xl font-normal text-slate-900 dark:text-white">All Records & Audit Logs</h2>
       <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">Log entry records by date, time, client name, and type.</p>
     </div>
 
