@@ -63,6 +63,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'FairytaleSerifRoyalFashionBeauty';
+  src: url('/FairytaleSerifRoyalFashionBeauty-j965v.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
   --font-sans: 'SolaimanLipi', sans-serif;
   --font-mono: 'SolaimanLipi', sans-serif;
@@ -72,6 +80,10 @@ body, input, button, select, textarea {
   background-color: var(--background);
   color: var(--foreground);
   font-family: 'SolaimanLipi', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'FairytaleSerifRoyalFashionBeauty', 'SolaimanLipi', serif;
 }
 
 /* Famous UI Visual Effects */

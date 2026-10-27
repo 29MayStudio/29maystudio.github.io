@@ -3,7 +3,6 @@
   import HomePage from './lib/components/HomePage.svelte';
   import AddPage from './lib/components/AddPage.svelte';
   import RecordsPage from './lib/components/RecordsPage.svelte';
-  import SettingsPage from './lib/components/SettingsPage.svelte';
 
   let activeTab = $state('home');
 
@@ -21,8 +20,5 @@
   </div>
   <div class={activeTab === 'records' ? 'h-full flex flex-col' : 'hidden'}>
     <RecordsPage />
-  </div>
-  <div class={activeTab === 'settings' ? 'h-full flex flex-col' : 'hidden'}>
-    <SettingsPage />
   </div>
 </Layout>
