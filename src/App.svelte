@@ -1,23 +1,23 @@
 <script lang="ts">
   import Layout from './lib/components/Layout.svelte';
-  import SalePage from './lib/components/SalePage.svelte';
-  import DashboardPage from './lib/components/DashboardPage.svelte';
-  import AddMedicinePage from './lib/components/AddMedicinePage.svelte';
+  import HomePage from './lib/components/HomePage.svelte';
+  import AddPage from './lib/components/AddPage.svelte';
   import RecordsPage from './lib/components/RecordsPage.svelte';
   import SettingsPage from './lib/components/SettingsPage.svelte';
 
-  let activeTab = $state('sale');
+  let activeTab = $state('home');
+
+  function navigateToAdd() {
+    activeTab = 'add';
+  }
 </script>
 
 <Layout bind:activeTab>
-  <div class={activeTab === 'sale' ? 'h-full flex flex-col' : 'hidden'}>
-    <SalePage />
+  <div class={activeTab === 'home' ? 'h-full flex flex-col' : 'hidden'}>
+    <HomePage onNavigateToAdd={navigateToAdd} />
   </div>
-  <div class={activeTab === 'dashboard' ? 'h-full flex flex-col' : 'hidden'}>
-    <DashboardPage />
-  </div>
-  <div class={activeTab === 'add-medicine' ? 'h-full flex flex-col' : 'hidden'}>
-    <AddMedicinePage />
+  <div class={activeTab === 'add' ? 'h-full flex flex-col' : 'hidden'}>
+    <AddPage />
   </div>
   <div class={activeTab === 'records' ? 'h-full flex flex-col' : 'hidden'}>
     <RecordsPage />

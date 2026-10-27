@@ -1,62 +1,49 @@
 import Dexie, { type Table } from 'dexie';
 
-export interface CatalogItem {
+export interface Client {
   id?: number;
-  brand_name: string;
-  power: string;
-  generic_names: string[];
-  generic_search_string: string; // pre-computed lowercase search helper string
-  manufacturer: string;
-  dosage_form: string;
+  name: string;
+  phone?: string;
+  address?: string;
+  created_at: string; // ISO string
 }
 
-export interface InventoryItem {
+export interface FabricType {
   id?: number;
-  brand_name: string;
-  generic_names: string[];
-  power: string;
-  dosage_form: string;
-  manufacturer: string;
-  unit_price: number; // Retailer price
-  wholesale_price?: number; // Wholesale price
-  stock_quantity: number;
-  expiry_month: string; // e.g. "2026-12"
-  added_at: string; // ISO date string
-  source: 'auto' | 'manual';
-  catalog_id?: number;
+  name: string;
 }
 
-export interface CartItem {
-  inventory_id: number;
-  brand_name: string;
-  generic_names: string[];
-  power: string;
-  dosage_form: string;
-  unit_price: number;
-  wholesale_price?: number;
-  quantity: number;
-  expiry_month: string;
-  subtotal: number;
+export interface Dia {
+  id?: number;
+  value: string;
 }
 
-export interface SaleRecord {
+export interface ReceivedRecord {
   id?: number;
-  sale_code: string;
+  client_id: number;
+  client_name: string;
+  fabric_type: string;
+  dia: string;
+  gsm?: string;
+  rolls?: number;
+  weight_kg: number;
+  date: string; // YYYY-MM-DD
   timestamp: string; // ISO string
-  items: CartItem[];
-  total_amount: number;
-  discount_amount: number;
-  net_amount: number;
-  status: 'Completed' | 'Refunded';
+  note?: string;
 }
 
-export interface HeldBill {
+export interface DeliveredRecord {
   id?: number;
-  hold_code: string;
-  held_at: string; // ISO string
+  client_id: number;
+  client_name: string;
+  fabric_type: string;
+  dia: string;
+  gsm?: string;
+  rolls?: number;
+  weight_kg: number;
+  date: string; // YYYY-MM-DD
+  timestamp: string; // ISO string
   note?: string;
-  items: CartItem[];
-  total_amount: number;
 }
 
 export interface AppSetting {
@@ -64,25 +51,51 @@ export interface AppSetting {
   value: any;
 }
 
-export class HalalPharmacyDB extends Dexie {
-  catalog!: Table<CatalogItem, number>;
-  inventory!: Table<InventoryItem, number>;
-  sales!: Table<SaleRecord, number>;
-  heldBills!: Table<HeldBill, number>;
+export class KnittingFactoryDB extends Dexie {
+  clients!: Table<Client, number>;
+  fabricTypes!: Table<FabricType, number>;
+  dias!: Table<Dia, number>;
+  receivedRecords!: Table<ReceivedRecord, number>;
+  deliveredRecords!: Table<DeliveredRecord, number>;
   settings!: Table<AppSetting, string>;
 
   constructor() {
-    super('HalalPharmacyDB');
+    super('KnittingFactoryDB');
 
-    // Version definition
     this.version(1).stores({
-      catalog: '++id, brand_name, *generic_names, manufacturer, dosage_form, generic_search_string',
-      inventory: '++id, brand_name, *generic_names, stock_quantity, expiry_month, source',
-      sales: '++id, sale_code, timestamp, status',
-      heldBills: '++id, hold_code, held_at',
+      clients: '++id, name, phone, created_at',
+      fabricTypes: '++id, &name',
+      dias: '++id, &value',
+      receivedRecords: '++id, client_id, client_name, fabric_type, dia, date, timestamp',
+      deliveredRecords: '++id, client_id, client_name, fabric_type, dia, date, timestamp',
       settings: '&key',
     });
   }
 }
 
-export const db = new HalalPharmacyDB();
+export const db = new KnittingFactoryDB();
+
+export async function seedInitialData() {
+  const fabricCount = await db.fabricTypes.count();
+  if (fabricCount === 0) {
+    const defaultFabrics = [
+      'Single Jersey',
+      '1x1 Rib',
+      '2x2 Rib',
+      'Interlock',
+      'Terry / French Terry',
+      'Fleece',
+      'Pique',
+      'Lycra Cotton'
+    ];
+    await db.fabricTypes.bulkAdd(defaultFabrics.map((name) => ({ name })));
+  }
+
+  const diaCount = await db.dias.count();
+  if (diaCount === 0) {
+    const defaultDias = [
+      '20"', '22"', '24"', '26"', '28"', '30"', '32"', '34"', '36"', '38"', '40"'
+    ];
+    await db.dias.bulkAdd(defaultDias.map((value) => ({ value })));
+  }
+}

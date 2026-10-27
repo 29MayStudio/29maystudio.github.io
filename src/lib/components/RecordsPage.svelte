@@ -1,155 +1,188 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { db, type SaleRecord } from '../db';
-  import { formatCurrency, formatDate } from '../utils';
+  import { db, type ReceivedRecord, type DeliveredRecord, type Client } from '../db';
   import Card from './ui/Card.svelte';
   import Button from './ui/Button.svelte';
   import Input from './ui/Input.svelte';
-  import Badge from './ui/Badge.svelte';
-  import Dialog from './ui/Dialog.svelte';
   import {
     Receipt,
     Search,
-    Printer,
-    Eye,
-    RotateCcw,
     Download,
-    DollarSign,
-    Filter
+    ArrowDownLeft,
+    ArrowUpRight,
+    Filter,
+    Trash2,
+    Calendar
   } from 'lucide-svelte';
 
-  let allSales = $state<SaleRecord[]>([]);
-  let filteredSales = $state<SaleRecord[]>([]);
-
+  let recordType = $state<'all' | 'received' | 'delivered'>('all');
   let searchFilter = $state('');
-  let dateFilter = $state(''); // "YYYY-MM-DD"
+  let dateFilter = $state('');
 
-  // Selected sale modal
-  let selectedSale = $state<SaleRecord | null>(null);
-  let showDetailsDialog = $state(false);
+  let receivedList = $state<ReceivedRecord[]>([]);
+  let deliveredList = $state<DeliveredRecord[]>([]);
+  let clientsList = $state<Client[]>([]);
 
-  async function loadSales() {
+  async function loadRecords() {
     try {
-      allSales = await db.sales.orderBy('timestamp').reverse().toArray();
-      applyFilters();
+      receivedList = await db.receivedRecords.orderBy('timestamp').reverse().toArray();
+      deliveredList = await db.deliveredRecords.orderBy('timestamp').reverse().toArray();
+      clientsList = await db.clients.orderBy('name').toArray();
     } catch (e) {
-      console.error('Failed to load sales history:', e);
+      console.error('Failed to load records:', e);
     }
   }
 
   onMount(() => {
-    loadSales();
+    loadRecords();
 
     const handleDbUpdate = () => {
-      loadSales();
+      loadRecords();
     };
 
-    window.addEventListener('pharmacy-db-updated', handleDbUpdate);
+    window.addEventListener('db-updated', handleDbUpdate);
     window.addEventListener('focus', handleDbUpdate);
 
     return () => {
-      window.removeEventListener('pharmacy-db-updated', handleDbUpdate);
+      window.removeEventListener('db-updated', handleDbUpdate);
       window.removeEventListener('focus', handleDbUpdate);
     };
   });
 
-  function applyFilters() {
-    let result = [...allSales];
-
+  // Filtered lists
+  let filteredReceived = $derived.by(() => {
+    let result = [...receivedList];
     if (searchFilter.trim()) {
       const q = searchFilter.toLowerCase().trim();
-      result = result.filter((s) => {
-        const codeMatch = s.sale_code.toLowerCase().includes(q);
-        const itemMatch = s.items.some(
-          (item) =>
-            item.brand_name.toLowerCase().includes(q) ||
-            item.generic_names.some((g) => g.toLowerCase().includes(q))
-        );
-        return codeMatch || itemMatch;
-      });
+      result = result.filter(
+        (r) =>
+          r.client_name.toLowerCase().includes(q) ||
+          r.fabric_type.toLowerCase().includes(q) ||
+          r.dia.toLowerCase().includes(q) ||
+          (r.note && r.note.toLowerCase().includes(q))
+      );
     }
-
     if (dateFilter) {
-      result = result.filter((s) => s.timestamp.startsWith(dateFilter));
+      result = result.filter((r) => r.date === dateFilter);
     }
-
-    filteredSales = result;
-  }
-
-  $effect(() => {
-    applyFilters();
+    return result;
   });
 
-  let totalRevenueInView = $derived(
-    filteredSales
-      .filter((s) => s.status === 'Completed')
-      .reduce((sum, s) => sum + s.net_amount, 0)
-  );
+  let filteredDelivered = $derived.by(() => {
+    let result = [...deliveredList];
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase().trim();
+      result = result.filter(
+        (r) =>
+          r.client_name.toLowerCase().includes(q) ||
+          r.fabric_type.toLowerCase().includes(q) ||
+          r.dia.toLowerCase().includes(q) ||
+          (r.note && r.note.toLowerCase().includes(q))
+      );
+    }
+    if (dateFilter) {
+      result = result.filter((r) => r.date === dateFilter);
+    }
+    return result;
+  });
 
-  let totalCompletedCount = $derived(filteredSales.filter((s) => s.status === 'Completed').length);
-
-  function viewSaleDetails(sale: SaleRecord) {
-    selectedSale = sale;
-    showDetailsDialog = true;
+  // Combined records for "all" view
+  interface CombinedRecord {
+    id?: number;
+    type: 'Received' | 'Delivered';
+    client_name: string;
+    fabric_type: string;
+    dia: string;
+    gsm?: string;
+    rolls?: number;
+    weight_kg: number;
+    date: string;
+    timestamp: string;
+    note?: string;
   }
 
-  async function voidTransaction(sale: SaleRecord) {
-    if (!confirm(`Are you sure you want to mark transaction ${sale.sale_code} as Refunded/Void? This will restock the sold items.`)) {
-      return;
+  let combinedRecords = $derived.by<CombinedRecord[]>(() => {
+    const rx = filteredReceived.map((r) => ({ ...r, type: 'Received' as const }));
+    const dx = filteredDelivered.map((d) => ({ ...d, type: 'Delivered' as const }));
+    const combined = [...rx, ...dx];
+    combined.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return combined;
+  });
+
+  let totalReceivedKg = $derived(filteredReceived.reduce((acc, r) => acc + (r.weight_kg || 0), 0));
+  let totalDeliveredKg = $derived(filteredDelivered.reduce((acc, d) => acc + (d.weight_kg || 0), 0));
+
+  async function deleteReceivedRecord(id?: number) {
+    if (!id) return;
+    if (confirm('Delete this received record?')) {
+      await db.receivedRecords.delete(id);
+      await loadRecords();
     }
+  }
 
-    try {
-      await db.transaction('rw', db.sales, db.inventory, async () => {
-        await db.sales.update(sale.id!, { status: 'Refunded' });
-
-        // Restock items into inventory
-        for (const item of sale.items) {
-          const inv = await db.inventory.get(item.inventory_id);
-          if (inv) {
-            await db.inventory.update(item.inventory_id, {
-              stock_quantity: inv.stock_quantity + item.quantity,
-            });
-          }
-        }
-      });
-
-      if (selectedSale && selectedSale.id === sale.id) {
-        selectedSale.status = 'Refunded';
-      }
-
-      window.dispatchEvent(new CustomEvent('pharmacy-db-updated'));
-      await loadSales();
-    } catch (err: any) {
-      alert('Failed to void transaction: ' + err.message);
+  async function deleteDeliveredRecord(id?: number) {
+    if (!id) return;
+    if (confirm('Delete this delivered record?')) {
+      await db.deliveredRecords.delete(id);
+      await loadRecords();
     }
   }
 
   function exportCSV() {
-    if (filteredSales.length === 0) return;
+    let exportData: any[] = [];
+    if (recordType === 'received') {
+      exportData = filteredReceived.map((r) => ({
+        Type: 'Received',
+        Client: r.client_name,
+        Date: r.date,
+        'Fabric Type': r.fabric_type,
+        Dia: r.dia,
+        GSM: r.gsm || '',
+        Rolls: r.rolls || 0,
+        'Weight (kg)': r.weight_kg,
+        Note: r.note || ''
+      }));
+    } else if (recordType === 'delivered') {
+      exportData = filteredDelivered.map((d) => ({
+        Type: 'Delivered',
+        Client: d.client_name,
+        Date: d.date,
+        'Fabric Type': d.fabric_type,
+        Dia: d.dia,
+        GSM: d.gsm || '',
+        Rolls: d.rolls || 0,
+        'Weight (kg)': d.weight_kg,
+        Note: d.note || ''
+      }));
+    } else {
+      exportData = combinedRecords.map((c) => ({
+        Type: c.type,
+        Client: c.client_name,
+        Date: c.date,
+        'Fabric Type': c.fabric_type,
+        Dia: c.dia,
+        GSM: c.gsm || '',
+        Rolls: c.rolls || 0,
+        'Weight (kg)': c.weight_kg,
+        Note: c.note || ''
+      }));
+    }
 
-    const headers = ['Sale Code', 'Date/Time', 'Status', 'Items Count', 'Subtotal', 'Discount', 'Net Total'];
-    const rows = filteredSales.map((s) => [
-      s.sale_code,
-      s.timestamp,
-      s.status,
-      s.items.length,
-      s.total_amount,
-      s.discount_amount,
-      s.net_amount,
-    ]);
+    if (exportData.length === 0) return;
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const headers = Object.keys(exportData[0]);
+    const rows = exportData.map((obj) =>
+      headers.map((h) => `"${String(obj[h] || '').replace(/"/g, '""')}"`).join(',')
+    );
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `sales_report_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `knitting_records_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }
-
-  function printReceipt() {
-    window.print();
   }
 </script>
 
@@ -157,8 +190,8 @@
   <!-- Header Title -->
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-      <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Sales & Audit Records</h2>
-      <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">Comprehensive audit trail of all transactions and sales history.</p>
+      <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">All Records & Audit Logs</h2>
+      <p class="text-sm text-slate-500 dark:text-neutral-400 mt-0.5">Filter, search, and export received and delivered fabric logs.</p>
     </div>
 
     <Button variant="outline" onclick={exportCSV} class="flex items-center gap-2 cursor-pointer shrink-0">
@@ -171,19 +204,56 @@
   <Card class="p-4">
     <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
       <!-- Search Input -->
-      <div class="md:col-span-7 relative">
+      <div class="md:col-span-5 relative">
         <Search class="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
         <Input
           type="text"
-          placeholder="Filter by Sale Code or Medicine Brand/Generic..."
+          placeholder="Filter by Client Name, Fabric, Dia, or Note..."
           bind:value={searchFilter}
           class="pl-9 h-9 text-xs"
         />
       </div>
 
       <!-- Date Filter -->
-      <div class="md:col-span-4 relative">
+      <div class="md:col-span-3 relative">
         <Input type="date" bind:value={dateFilter} class="h-9 text-xs" />
+      </div>
+
+      <!-- Type Filter -->
+      <div class="md:col-span-3 flex bg-slate-100 dark:bg-neutral-800 p-1 rounded-xl">
+        <button
+          type="button"
+          onclick={() => (recordType = 'all')}
+          class={`flex-1 py-1 text-xs font-semibold rounded-lg transition-all ${
+            recordType === 'all'
+              ? 'bg-white dark:bg-neutral-900 text-slate-900 dark:text-white shadow-sm'
+              : 'text-slate-500'
+          }`}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          onclick={() => (recordType = 'received')}
+          class={`flex-1 py-1 text-xs font-semibold rounded-lg transition-all ${
+            recordType === 'received'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-500'
+          }`}
+        >
+          Received
+        </button>
+        <button
+          type="button"
+          onclick={() => (recordType = 'delivered')}
+          class={`flex-1 py-1 text-xs font-semibold rounded-lg transition-all ${
+            recordType === 'delivered'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-500'
+          }`}
+        >
+          Delivered
+        </button>
       </div>
 
       <!-- Reset Filters Button -->
@@ -194,6 +264,7 @@
           onclick={() => {
             searchFilter = '';
             dateFilter = '';
+            recordType = 'all';
           }}
           class="w-full h-9 text-xs cursor-pointer"
           title="Reset Filters"
@@ -204,32 +275,34 @@
     </div>
   </Card>
 
-  <!-- Filter Summary Stats Bar -->
+  <!-- Summary Stats Bar -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <div class="p-4 rounded-xl bg-white dark:bg-black border border-slate-200 dark:border-neutral-800 flex items-center justify-between">
       <div>
-        <div class="text-xs text-slate-500 dark:text-neutral-400">Filtered Sales Revenue</div>
-        <div class="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalRevenueInView)}</div>
-      </div>
-      <div class="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
-        <DollarSign class="h-4 w-4" />
-      </div>
-    </div>
-
-    <div class="p-4 rounded-xl bg-white dark:bg-black border border-slate-200 dark:border-neutral-800 flex items-center justify-between">
-      <div>
-        <div class="text-xs text-slate-500 dark:text-neutral-400">Completed Transactions</div>
-        <div class="text-xl font-bold text-slate-900 dark:text-white">{totalCompletedCount} records</div>
+        <div class="text-xs text-slate-500 dark:text-neutral-400">Total Received Weight</div>
+        <div class="text-xl font-bold text-blue-600 dark:text-blue-400">{totalReceivedKg.toFixed(1)} kg</div>
       </div>
       <div class="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center">
-        <Receipt class="h-4 w-4" />
+        <ArrowDownLeft class="h-4 w-4" />
       </div>
     </div>
 
     <div class="p-4 rounded-xl bg-white dark:bg-black border border-slate-200 dark:border-neutral-800 flex items-center justify-between">
       <div>
-        <div class="text-xs text-slate-500 dark:text-neutral-400">Total Logged Records</div>
-        <div class="text-xl font-bold text-slate-900 dark:text-white">{filteredSales.length} total</div>
+        <div class="text-xs text-slate-500 dark:text-neutral-400">Total Delivered Weight</div>
+        <div class="text-xl font-bold text-emerald-600 dark:text-emerald-400">{totalDeliveredKg.toFixed(1)} kg</div>
+      </div>
+      <div class="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
+        <ArrowUpRight class="h-4 w-4" />
+      </div>
+    </div>
+
+    <div class="p-4 rounded-xl bg-white dark:bg-black border border-slate-200 dark:border-neutral-800 flex items-center justify-between">
+      <div>
+        <div class="text-xs text-slate-500 dark:text-neutral-400">Net Balance (Received - Delivered)</div>
+        <div class="text-xl font-bold text-purple-600 dark:text-purple-400">
+          {(totalReceivedKg - totalDeliveredKg).toFixed(1)} kg
+        </div>
       </div>
       <div class="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
         <Filter class="h-4 w-4" />
@@ -238,74 +311,77 @@
   </div>
 
   <!-- Records Data Table -->
-  <Card title="Sales History Log">
-    {#if filteredSales.length === 0}
+  <Card title="Activity Records Table">
+    {#if combinedRecords.length === 0}
       <div class="py-16 text-center text-slate-400">
         <Receipt class="h-12 w-12 mx-auto mb-2 text-slate-300 dark:text-neutral-700 stroke-1" />
-        <p class="font-medium text-sm">No sales records found</p>
-        <p class="text-xs text-slate-400 mt-1">Try adjusting search parameters or complete a new sale on POS.</p>
+        <p class="font-medium text-sm">No activity records found</p>
+        <p class="text-xs text-slate-400 mt-1">Try adjusting search parameters or add records on the Home screen.</p>
       </div>
     {:else}
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
           <thead class="border-b border-slate-200 dark:border-neutral-800 text-slate-500 uppercase tracking-wider text-[11px]">
             <tr>
-              <th class="pb-3 font-semibold">Sale Code</th>
-              <th class="pb-3 font-semibold">Timestamp</th>
-              <th class="pb-3 font-semibold">Purchased Items</th>
-              <th class="pb-3 font-semibold">Status</th>
-              <th class="pb-3 font-semibold text-right">Net Amount</th>
+              <th class="pb-3 font-semibold">Type</th>
+              <th class="pb-3 font-semibold">Client Name</th>
+              <th class="pb-3 font-semibold">Date</th>
+              <th class="pb-3 font-semibold">Fabric Type</th>
+              <th class="pb-3 font-semibold">Dia / GSM</th>
+              <th class="pb-3 font-semibold">Rolls</th>
+              <th class="pb-3 font-semibold text-right">Weight (kg)</th>
               <th class="pb-3 font-semibold text-center">Action</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-neutral-800">
-            {#each filteredSales as sale}
-              <tr class="hover:bg-slate-50 dark:hover:bg-neutral-900/40 transition-colors">
-                <td class="py-3.5 font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                  {sale.sale_code}
-                </td>
-                <td class="py-3.5 text-slate-500">{formatDate(sale.timestamp)}</td>
-                <td class="py-3.5 font-medium text-slate-800 dark:text-slate-200">
-                  {sale.items.map((i) => i.brand_name).slice(0, 2).join(', ')}
-                  {#if sale.items.length > 2}
-                    <span class="text-slate-400 font-normal">+{sale.items.length - 2} more</span>
-                  {/if}
-                </td>
-                <td class="py-3.5">
-                  {#if sale.status === 'Completed'}
-                    <Badge variant="success" class="text-[10px]">Completed</Badge>
-                  {:else}
-                    <Badge variant="destructive" class="text-[10px]">Refunded / Void</Badge>
-                  {/if}
-                </td>
-                <td class="py-3.5 font-bold text-right text-slate-900 dark:text-slate-100 text-sm">
-                  {formatCurrency(sale.net_amount)}
-                </td>
-                <td class="py-3.5 text-center">
-                  <div class="flex items-center justify-center gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onclick={() => viewSaleDetails(sale)}
-                      class="h-7 px-2 text-slate-600 dark:text-slate-300 cursor-pointer"
-                      title="View Details"
-                    >
-                      <Eye class="h-3.5 w-3.5" />
-                    </Button>
-                    {#if sale.status === 'Completed'}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onclick={() => voidTransaction(sale)}
-                        class="h-7 px-2 text-rose-600 hover:text-rose-700 cursor-pointer"
-                        title="Refund / Void Transaction"
-                      >
-                        <RotateCcw class="h-3.5 w-3.5" />
-                      </Button>
+            {#each combinedRecords as record}
+              {#if recordType === 'all' || recordType === record.type.toLowerCase()}
+                <tr class="hover:bg-slate-50 dark:hover:bg-neutral-900/40 transition-colors">
+                  <td class="py-3.5">
+                    {#if record.type === 'Received'}
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+                        Received
+                      </span>
+                    {:else}
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                        Delivered
+                      </span>
                     {/if}
-                  </div>
-                </td>
-              </tr>
+                  </td>
+                  <td class="py-3.5 font-bold text-slate-900 dark:text-white">
+                    {record.client_name}
+                  </td>
+                  <td class="py-3.5 text-slate-500 font-mono text-[11px]">{record.date}</td>
+                  <td class="py-3.5 font-medium text-slate-800 dark:text-slate-200">
+                    {record.fabric_type}
+                    {#if record.note}
+                      <div class="text-[10px] text-slate-400 font-normal">{record.note}</div>
+                    {/if}
+                  </td>
+                  <td class="py-3.5 text-slate-600 dark:text-neutral-300">
+                    {record.dia} {#if record.gsm}<span class="text-slate-400">({record.gsm})</span>{/if}
+                  </td>
+                  <td class="py-3.5 text-slate-600 dark:text-neutral-300">
+                    {record.rolls ?? '-'}
+                  </td>
+                  <td class={`py-3.5 font-extrabold text-right text-sm ${record.type === 'Received' ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    {record.weight_kg} kg
+                  </td>
+                  <td class="py-3.5 text-center">
+                    <button
+                      type="button"
+                      onclick={() =>
+                        record.type === 'Received'
+                          ? deleteReceivedRecord(record.id)
+                          : deleteDeliveredRecord(record.id)}
+                      class="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg transition-colors cursor-pointer"
+                      title="Delete entry"
+                    >
+                      <Trash2 class="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              {/if}
             {/each}
           </tbody>
         </table>
@@ -313,61 +389,3 @@
     {/if}
   </Card>
 </div>
-
-<!-- Transaction Details & Receipt Modal -->
-<Dialog open={showDetailsDialog} onclose={() => (showDetailsDialog = false)} title="Transaction Details" maxWidth="max-w-md">
-  {#if selectedSale}
-    <div class="p-4 bg-white text-slate-900 font-mono text-xs border border-slate-200 rounded-lg space-y-3 my-2" id="printable-receipt">
-      <div class="text-center border-b border-dashed border-slate-300 pb-3">
-        <h3 class="font-bold text-base text-slate-900 font-sans">THE HALAL PHARMACY</h3>
-        <p class="text-[11px] text-slate-600">Islamic Pharmacy & Medicine Outlet</p>
-        <p class="text-[10px] text-slate-500 mt-1">Invoice: {selectedSale.sale_code}</p>
-        <p class="text-[10px] text-slate-500">{formatDate(selectedSale.timestamp)}</p>
-        <p class="text-[10px] font-bold text-slate-800 mt-1 uppercase">Status: {selectedSale.status}</p>
-      </div>
-
-      <div class="space-y-1.5 border-b border-dashed border-slate-300 pb-3">
-        {#each selectedSale.items as item}
-          <div class="flex justify-between items-start">
-            <div>
-              <div class="font-bold">{item.brand_name} {item.power}</div>
-              <div class="text-[10px] text-slate-500">{item.quantity} x {formatCurrency(item.unit_price)}</div>
-            </div>
-            <div class="font-bold">{formatCurrency(item.subtotal)}</div>
-          </div>
-        {/each}
-      </div>
-
-      <div class="space-y-1 text-right">
-        <div class="flex justify-between">
-          <span>Subtotal:</span>
-          <span>{formatCurrency(selectedSale.total_amount)}</span>
-        </div>
-        {#if selectedSale.discount_amount > 0}
-          <div class="flex justify-between text-rose-600">
-            <span>Discount:</span>
-            <span>-{formatCurrency(selectedSale.discount_amount)}</span>
-          </div>
-        {/if}
-        <div class="flex justify-between font-bold text-sm border-t border-slate-300 pt-1 text-slate-900">
-          <span>Net Total:</span>
-          <span>{formatCurrency(selectedSale.net_amount)}</span>
-        </div>
-      </div>
-    </div>
-  {/if}
-
-  {#snippet footer()}
-    {#if selectedSale && selectedSale.status === 'Completed'}
-      <Button variant="destructive" onclick={() => voidTransaction(selectedSale!)} class="mr-auto">
-        Refund / Void
-      </Button>
-    {/if}
-
-    <Button variant="outline" onclick={printReceipt} class="flex items-center gap-1.5">
-      <Printer class="h-4 w-4" />
-      <span>Print Receipt</span>
-    </Button>
-    <Button variant="default" onclick={() => (showDetailsDialog = false)}>Close</Button>
-  {/snippet}
-</Dialog>
