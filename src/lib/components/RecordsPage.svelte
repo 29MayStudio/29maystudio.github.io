@@ -62,7 +62,7 @@
     if (!timestampIso) return '-';
     try {
       const dateObj = new Date(timestampIso);
-      return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
     } catch {
       return '-';
     }
@@ -470,7 +470,7 @@
       <button
         type="button"
         onclick={() => (isExcelModalOpen = false)}
-        class="px-4 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-neutral-800 cursor-pointer"
+        class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-neutral-800 text-xs font-semibold hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 cursor-pointer"
       >
         Cancel
       </button>

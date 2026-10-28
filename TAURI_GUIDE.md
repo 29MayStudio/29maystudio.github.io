@@ -1,6 +1,8 @@
 # Comprehensive Guide: Converting M/S A.B.S Knit Fabrics System into a Tauri v2 Windows Desktop App
 
-This guide provides step-by-step instructions to convert the existing web application into a **Tauri v2** desktop application for Windows (`.exe` and `.msi`), while maintaining dual support for both web browser deployment (via IndexedDB) and desktop deployment (via native SQLite).
+This guide provides step-by-step instructions and architecture blueprints to convert the **M/S A.B.S Knit Fabrics** web application into a high-performance **Tauri v2** desktop application for Windows (`.exe` installer via NSIS and `.msi` package), while preserving full offline functionality and multi-month tally records.
+
+Note: This guide is documentation-only and serves as an architecture specification.
 
 ---
 
@@ -20,8 +22,9 @@ This guide provides step-by-step instructions to convert the existing web applic
 
 The application is designed to function seamlessly across two environments:
 
-- **Web Mode (Browser / GitHub Pages)**: Uses **Dexie.js** (IndexedDB) for client-side offline storage.
-- **Desktop Mode (Tauri v2 Application)**: Uses **Tauri SQL Plugin** (`@tauri-apps/plugin-sql` with SQLite) for fast native performance on Windows.
+- **Web Mode (Browser / GitHub Pages)**: Uses **Dexie.js** (IndexedDB) for client-side offline browser storage.
+- **Desktop Mode (Tauri v2 Application)**: Uses **Tauri SQL Plugin** (`@tauri-apps/plugin-sql` with SQLite) for native Windows desktop performance.
+- **UI Compatibility**: Buttons use distinct solid color fills, table headers feature the `?` action column, audit logs format timestamps in 12-hour format (`hh:mm:ss AM/PM`), and statement prints apply 6mm A4 landscape page margins.
 
 A **Database Adapter Layer** auto-detects whether the app is running inside a Tauri window or standard browser, exposing a unified interface (`db`) so Svelte UI components require no code changes.
 
