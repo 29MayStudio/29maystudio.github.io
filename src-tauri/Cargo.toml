@@ -1,0 +1,19 @@
+[package]
+name = "abs-knit-fabrics"
+version = "1.0.0"
+description = "M/S A.B.S Knit Fabrics Data Management System"
+authors = ["you"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lib]
+name = "abs_knit_fabrics_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
