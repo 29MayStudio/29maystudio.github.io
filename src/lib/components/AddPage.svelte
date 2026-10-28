@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { db, seedInitialData, type Client, type FabricType, type Dia } from '../db';
-  import { UserPlus, Layers, Ruler, Trash2, Pencil, Plus, Users, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-svelte';
+  import { UserPlus, Layers, Ruler, Trash2, Pencil, Plus, Users, CheckCircle2, AlertCircle, AlertTriangle, Database } from 'lucide-svelte';
   import Dialog from './ui/Dialog.svelte';
 
   // Reactive state
@@ -44,6 +44,153 @@
   let diaSuccess = $state('');
 
   let activeTab = $state<'clients' | 'fabrics' | 'dias'>('clients');
+  let isGeneratingMockData = $state(false);
+
+  async function generateMockData() {
+    isGeneratingMockData = true;
+    clientError = '';
+    clientSuccess = '';
+    try {
+      const targetClientNames = [
+        'A&Z Knit Fabrics',
+        'A.B. Knitting',
+        'K.S.T. Knitting',
+        'New Somrat',
+        'Ruhul Knit',
+        'Saiful & Brothers',
+        'TOP Enterprises'
+      ];
+
+      const clientMap = new Map<string, number>();
+
+      for (const name of targetClientNames) {
+        let existing = await db.clients.where('name').equalsIgnoreCase(name).first();
+        if (!existing) {
+          const id = await db.clients.add({
+            name,
+            address: 'Narayanganj, Bangladesh',
+            created_at: new Date(Date.now() - 240 * 24 * 60 * 60 * 1000).toISOString()
+          });
+          clientMap.set(name, id as number);
+        } else {
+          clientMap.set(name, existing.id!);
+        }
+      }
+
+      const yarnCounts = ['30s Cotton', '28s Polyester', 'Single Jersey', '1x1 Rib', '2x2 Rib', 'Interlock', 'Terry / French Terry'];
+      const diaList = ['24"', '28"', '30"', '32"', '36"'];
+
+      const today = new Date();
+      const rxToAdd: any[] = [];
+      const dxToAdd: any[] = [];
+
+      let challanCounter = 1001;
+
+      // Generate records across past 8 months (~240 days)
+      for (let dayOffset = 240; dayOffset >= 0; dayOffset -= Math.floor(Math.random() * 3) + 4) {
+        const entryDateObj = new Date(today.getTime() - dayOffset * 24 * 60 * 60 * 1000);
+        const dateStr = entryDateObj.toISOString().split('T')[0];
+
+        for (const [clientName, clientId] of clientMap.entries()) {
+          const addRx = Math.random() > 0.3;
+          const addDx = Math.random() > 0.3;
+
+          if (addRx) {
+            const chNo = `RX-${challanCounter++}`;
+            const itemCount = Math.floor(Math.random() * 2) + 1;
+            const items = [];
+            let totalBags = 0;
+            let totalWeight = 0;
+
+            for (let i = 0; i < itemCount; i++) {
+              const yarn = yarnCounts[Math.floor(Math.random() * yarnCounts.length)];
+              const bags = Math.floor(Math.random() * 30) + 10;
+              const weight = Number((bags * (22 + Math.random() * 5)).toFixed(2));
+              items.push({
+                yarn_count: yarn,
+                lot: `LOT-${Math.floor(1000 + Math.random() * 9000)}`,
+                bags,
+                weight_kg: weight
+              });
+              totalBags += bags;
+              totalWeight += weight;
+            }
+            totalWeight = Number(totalWeight.toFixed(2));
+
+            rxToAdd.push({
+              client_id: clientId,
+              client_name: clientName,
+              date: dateStr,
+              ch_no: chNo,
+              yarn_count: items[0].yarn_count,
+              lot: items[0].lot,
+              bags: totalBags,
+              weight_kg: totalWeight,
+              total_weight_kg: totalWeight,
+              items,
+              timestamp: new Date(entryDateObj.getTime() + Math.floor(Math.random() * 36000000)).toISOString()
+            });
+          }
+
+          if (addDx) {
+            const chNo = `DX-${challanCounter++}`;
+            const itemCount = Math.floor(Math.random() * 2) + 1;
+            const items = [];
+            let totalRolls = 0;
+            let totalWeight = 0;
+
+            for (let i = 0; i < itemCount; i++) {
+              const yarn = yarnCounts[Math.floor(Math.random() * yarnCounts.length)];
+              const dia = diaList[Math.floor(Math.random() * diaList.length)];
+              const rolls = Math.floor(Math.random() * 25) + 5;
+              const weight = Number((rolls * (18 + Math.random() * 6)).toFixed(2));
+              items.push({
+                yarn_count: yarn,
+                lot: `LOT-${Math.floor(1000 + Math.random() * 9000)}`,
+                dia,
+                rolls,
+                weight_kg: weight
+              });
+              totalRolls += rolls;
+              totalWeight += weight;
+            }
+            totalWeight = Number(totalWeight.toFixed(2));
+
+            dxToAdd.push({
+              client_id: clientId,
+              client_name: clientName,
+              date: dateStr,
+              ch_no: chNo,
+              yarn_count: items[0].yarn_count,
+              lot: items[0].lot,
+              dia: items[0].dia,
+              rolls: totalRolls,
+              weight_kg: totalWeight,
+              total_weight_kg: totalWeight,
+              items,
+              timestamp: new Date(entryDateObj.getTime() + Math.floor(Math.random() * 36000000) + 3600000).toISOString()
+            });
+          }
+        }
+      }
+
+      if (rxToAdd.length > 0) {
+        await db.receivedRecords.bulkAdd(JSON.parse(JSON.stringify(rxToAdd)));
+      }
+      if (dxToAdd.length > 0) {
+        await db.deliveredRecords.bulkAdd(JSON.parse(JSON.stringify(dxToAdd)));
+      }
+
+      await loadAllData();
+      window.dispatchEvent(new CustomEvent('db-updated'));
+      clientSuccess = `Successfully added 8 months of mock data for 7 clients!`;
+      setTimeout(() => (clientSuccess = ''), 5000);
+    } catch (err: any) {
+      clientError = err?.message || 'Failed to generate mock data.';
+    } finally {
+      isGeneratingMockData = false;
+    }
+  }
 
   // Custom confirmation modal state
   let confirmModal = $state<{
@@ -366,8 +513,20 @@
       </p>
     </div>
 
-    <!-- Sub-tab Selector -->
-    <div class="flex bg-slate-200 dark:bg-neutral-900 p-1 rounded-xl">
+    <div class="flex items-center gap-3">
+      <button
+        type="button"
+        onclick={generateMockData}
+        disabled={isGeneratingMockData}
+        class="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+        title="Add 8 months worth of mock tally records for default clients"
+      >
+        <Database class="w-4 h-4" />
+        {isGeneratingMockData ? 'Generating...' : 'Add Mock Data (8 Months)'}
+      </button>
+
+      <!-- Sub-tab Selector -->
+      <div class="flex bg-slate-200 dark:bg-neutral-900 p-1 rounded-xl">
       <button
         type="button"
         onclick={() => (activeTab = 'clients')}
@@ -404,6 +563,7 @@
         <Ruler class="w-4 h-4" />
         Dias ({dias.length})
       </button>
+      </div>
     </div>
   </div>
 
@@ -738,7 +898,7 @@
       <button
         type="button"
         onclick={() => (confirmModal.open = false)}
-        class="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-semibold text-slate-700 dark:text-neutral-300 cursor-pointer"
+        class="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-neutral-800 hover:bg-slate-300 dark:hover:bg-neutral-700 text-xs font-semibold text-slate-800 dark:text-neutral-200 cursor-pointer"
       >
         Cancel
       </button>
@@ -785,7 +945,7 @@
       <button
         type="button"
         onclick={() => (editingClient.open = false)}
-        class="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-semibold cursor-pointer"
+        class="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-neutral-800 hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 text-xs font-semibold cursor-pointer"
       >
         Cancel
       </button>
@@ -820,7 +980,7 @@
       <button
         type="button"
         onclick={() => (editingFabric.open = false)}
-        class="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-semibold cursor-pointer"
+        class="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-neutral-800 hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 text-xs font-semibold cursor-pointer"
       >
         Cancel
       </button>
@@ -855,7 +1015,7 @@
       <button
         type="button"
         onclick={() => (editingDia.open = false)}
-        class="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-semibold cursor-pointer"
+        class="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-neutral-800 hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 text-xs font-semibold cursor-pointer"
       >
         Cancel
       </button>

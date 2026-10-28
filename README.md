@@ -13,20 +13,22 @@ Built with **Svelte 5**, **TypeScript**, **Tailwind CSS v4**, and **Dexie Indexe
    - **Side-by-Side Dual View**: Received Tally and Delivered Tally grids separated by a central dividing line.
    - **Date-Wise Sorting**: Records are sorted chronologically by date (oldest at the top, newest at the bottom).
    - **Multi-Item Entry**: Form to log multiple yarn items in a single challan with automatic bag/roll and total weight calculations.
-   - **Question Mark Popover**: Hover/click options in the Del column providing **Edit** and **Delete** actions.
+   - **Question Mark Popover**: Hover/click options in the `?` column providing **Edit** and **Delete** actions.
    - **Edit Popup**: Modify past entries, challan numbers, and item rows in a popup modal.
    - **Custom Confirmation Modals**: Replaces native browser dialogs for all deletion confirmations.
-   - **Statement & A4 Landscape Printing**: Highlighted `Statement` button beside client headline to select a date range and print a clean side-by-side A4 Landscape statement chart.
+   - **Statement & A4 Landscape Printing**: Highlighted `Statement` button beside client headline to select a date range and print a clean side-by-side A4 Landscape statement chart with 6mm margins.
 
 2. **Data Management (Add Screen)**
    - Manage registered **Clients**, **Yarn Types**, and **Dias**.
-   - Input validation and duplicate checks.
+   - **Mock Data Generator**: Generate 8 months worth of historical tally records in one click for 7 default clients (`A&Z Knit Fabrics`, `A.B. Knitting`, `K.S.T. Knitting`, `New Somrat`, `Ruhul Knit`, `Saiful & Brothers`, `TOP Enterprises`).
+   - Color-filled action buttons and input validation with duplicate checks.
 
 3. **All Records & Audit Logs (Records Screen)**
    - Minimalist spreadsheet audit trail of all received and delivered challans.
+   - Displays 12-hour timestamps (`hh:mm:ss AM/PM`) for all log entries.
    - Direct breakdown display for multi-item challans.
    - Filter by client name, entry date, or transaction type (Received / Delivered).
-   - **CSV Export**: Download audit logs for offline reporting and accounting.
+   - **Excel (.xlsx) Export**: Download audit logs with 12-hour time formatting for offline reporting and accounting.
 
 ---
 

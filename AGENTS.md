@@ -17,19 +17,21 @@
    - Dual full-screen side-by-side tally grid view (Received Tally | Delivered Tally).
    - Date-wise sorting (oldest date on top, newest date on bottom).
    - Dynamic multi-item yarn entry form for received and delivered challans.
-   - Del column question icon popover with **Edit** and **Delete** options.
+   - `?` column question icon popover with **Edit** and **Delete** options.
    - Edit modal popup for updating past entries and item rows.
    - Custom modal popups for all confirmation dialogs.
-   - **Statement**: Highlighted button beside client name title to open a date-range popup dialog and print a clean A4 Landscape statement chart with client name on top and two charts side-by-side.
+   - **Statement**: Highlighted button beside client name title to open a date-range popup dialog and print a clean A4 Landscape statement chart with 6mm margins, client name on top and two charts side-by-side.
 
 2. **Data Management (`AddPage.svelte`)**:
    - Add and manage registered Clients, Yarn Types, and Dias.
-   - Delete confirmations powered by custom modal dialogs.
+   - **Mock Data Generator**: Generate 8 months worth of historical tally data in one click for 7 default clients (`A&Z Knit Fabrics`, `A.B. Knitting`, `K.S.T. Knitting`, `New Somrat`, `Ruhul Knit`, `Saiful & Brothers`, `TOP Enterprises`).
+   - Color-filled action buttons and delete confirmations powered by custom modal dialogs.
 
 3. **All Records & Audit Logs (`RecordsPage.svelte`)**:
    - Minimalist audit trail table supporting multi-item challan breakdowns.
+   - Uses 12-hour format with AM/PM (`hh:mm:ss AM/PM`) on screen and in exports.
    - Search by client, date filter, type filter (Received/Delivered).
-   - CSV export feature.
+   - Excel (`.xlsx`) export feature.
 
 ### Verification Commands
 Before committing or submitting changes, run:

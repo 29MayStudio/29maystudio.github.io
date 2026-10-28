@@ -32,9 +32,9 @@
   const variantStyles: Record<Variant, string> = {
     default: 'bg-emerald-600 text-white hover:bg-emerald-700',
     destructive: 'bg-rose-600 text-white hover:bg-rose-700',
-    outline: 'border border-slate-300 dark:border-slate-700 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100',
-    secondary: 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700',
-    ghost: 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200',
+    outline: 'border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100',
+    secondary: 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-300 dark:hover:bg-slate-700',
+    ghost: 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200',
     link: 'text-emerald-600 underline-offset-4 hover:underline dark:text-emerald-400 p-0 h-auto',
     success: 'bg-teal-600 text-white hover:bg-teal-700',
   };

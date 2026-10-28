@@ -730,7 +730,7 @@
             <button
               type="button"
               onclick={clearSelectedClient}
-              class="px-3 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-600 dark:text-neutral-300 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+              class="px-3 py-2 rounded-xl bg-slate-200 dark:bg-neutral-800 hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
               title="Change client"
             >
               <X class="w-4 h-4" /> Change Client
@@ -762,7 +762,7 @@
                   <th class="px-2.5 py-2">Lot</th>
                   <th class="px-2.5 py-2 w-16 text-center">Bags</th>
                   <th class="px-2.5 py-2 w-24 text-right">Weight (Kg)</th>
-                  <th class="px-2.5 py-2 w-10 text-center">Del</th>
+                  <th class="px-2.5 py-2 w-10 text-center">?</th>
                 </tr>
               </thead>
 
@@ -1028,7 +1028,7 @@
                   <th class="px-2.5 py-2 w-14">Dia</th>
                   <th class="px-2.5 py-2 w-16 text-center">Rolls</th>
                   <th class="px-2.5 py-2 w-24 text-right">Weight (Kg)</th>
-                  <th class="px-2.5 py-2 w-10 text-center">Del</th>
+                  <th class="px-2.5 py-2 w-10 text-center">?</th>
                 </tr>
               </thead>
 
@@ -1301,7 +1301,7 @@
       <button
         type="button"
         onclick={() => (confirmModal.open = false)}
-        class="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-semibold text-slate-700 dark:text-neutral-300 cursor-pointer"
+        class="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-neutral-800 hover:bg-slate-300 dark:hover:bg-neutral-700 text-xs font-semibold text-slate-800 dark:text-neutral-200 cursor-pointer"
       >
         Cancel
       </button>
@@ -1403,7 +1403,7 @@
       <button
         type="button"
         onclick={() => (editingReceived.open = false)}
-        class="px-4 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-neutral-800 cursor-pointer"
+        class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-neutral-800 text-xs font-semibold hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 cursor-pointer"
       >
         Cancel
       </button>
@@ -1462,7 +1462,7 @@
       <button
         type="button"
         onclick={() => (isStatementModalOpen = false)}
-        class="px-4 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-neutral-800 cursor-pointer"
+        class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-neutral-800 text-xs font-semibold hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 cursor-pointer"
       >
         Close
       </button>
@@ -1731,7 +1731,7 @@
       <button
         type="button"
         onclick={() => (editingDelivered.open = false)}
-        class="px-4 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-neutral-800 cursor-pointer"
+        class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-neutral-800 text-xs font-semibold hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 cursor-pointer"
       >
         Cancel
       </button>
