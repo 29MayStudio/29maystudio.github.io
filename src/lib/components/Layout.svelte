@@ -36,7 +36,7 @@
 
 <div class="flex flex-col md:flex-row h-screen h-[100dvh] bg-slate-100 dark:bg-black text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
   <!-- Sidebar Navigation -->
-  <aside class="w-full md:w-16 h-14 md:h-full bg-white dark:bg-black border-b md:border-b-0 md:border-r border-slate-200 dark:border-neutral-800 flex flex-row md:flex-col items-center justify-between px-3 py-1.5 md:py-4 z-20 shrink-0">
+  <aside class="w-full md:w-16 h-14 md:h-full bg-white dark:bg-black border-b md:border-b-0 md:border-r border-slate-200 dark:border-neutral-800 flex flex-row md:flex-col items-center justify-between px-3 py-1.5 md:py-4 z-20 shrink-0 print:hidden">
     <!-- Navigation Links -->
     <nav class="flex flex-row md:flex-col items-center justify-center md:justify-center gap-1 md:gap-0 md:space-y-3 flex-1 md:w-full md:px-2">
       {#each navItems as item}
@@ -67,7 +67,7 @@
   </aside>
 
   <!-- Main Content Area -->
-  <main class="flex-1 overflow-auto bg-slate-50 dark:bg-black relative h-[calc(100dvh-3.5rem)] md:h-full">
+  <main class="flex-1 overflow-hidden bg-slate-50 dark:bg-black relative h-[calc(100dvh-3.5rem)] md:h-full">
     {@render children?.()}
   </main>
 </div>
