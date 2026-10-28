@@ -31,6 +31,10 @@
 
   let selectedRecord = $state<AuditLogEntry | null>(null);
 
+  // Infinite Scroll State
+  let displayedCount = $state(20);
+  const BATCH_SIZE = 20;
+
   // Excel Export Modal state
   let isExcelModalOpen = $state(false);
   let selectedExportTarget = $state<string>('ALL'); // 'ALL' or client.id as string
@@ -126,6 +130,25 @@
     return logs;
   });
 
+  // Reset displayedCount whenever filters change
+  $effect(() => {
+    // Access filter states to create reactivity dependency
+    nameFilter; yarnFilter; diaFilter; dateFilter; typeFilter;
+    displayedCount = BATCH_SIZE;
+  });
+
+  let visibleAuditLogs = $derived(auditLogs.slice(0, displayedCount));
+
+  function handleScroll(e: Event) {
+    const target = e.target as HTMLElement;
+    if (!target) return;
+    if (target.scrollTop + target.clientHeight >= target.scrollHeight - 100) {
+      if (displayedCount < auditLogs.length) {
+        displayedCount += BATCH_SIZE;
+      }
+    }
+  }
+
   function openDetailModal(log: AuditLogEntry) {
     selectedRecord = log;
   }
@@ -218,7 +241,7 @@
   }
 </script>
 
-<div class="h-full flex flex-col overflow-y-auto p-4 md:p-6 space-y-5">
+<div class="h-full flex flex-col overflow-y-auto p-4 md:p-6 space-y-5" onscroll={handleScroll}>
   <!-- Minimal Header -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
     <div>
@@ -356,7 +379,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-neutral-800">
-            {#each auditLogs as log}
+            {#each visibleAuditLogs as log}
               {@const rec = log.rawRecord}
               {@const items = rec.items && rec.items.length > 0 ? rec.items : [{ yarn_count: rec.yarn_count, lot: rec.lot, dia: 'dia' in rec ? rec.dia : undefined, bags: 'bags' in rec ? rec.bags : undefined, rolls: 'rolls' in rec ? rec.rolls : undefined, weight_kg: rec.weight_kg }]}
               <tr class="hover:bg-slate-50 dark:hover:bg-neutral-800/40 transition-colors">
@@ -426,6 +449,11 @@
           </tbody>
         </table>
       </div>
+      {#if displayedCount < auditLogs.length}
+        <div class="p-3 text-center text-xs text-slate-500 border-t border-slate-100 dark:border-neutral-800 bg-slate-50/50 dark:bg-neutral-900/50 font-medium">
+          Showing {visibleAuditLogs.length} of {auditLogs.length} logs &mdash; Scroll down to load more...
+        </div>
+      {/if}
     {/if}
   </div>
 </div>

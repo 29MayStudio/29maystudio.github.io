@@ -80,10 +80,17 @@ html {
   font-size: 17px;
 }
 
-body, input, button, select, textarea {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: 'SolaimanLipi', sans-serif;
+@layer base {
+  body, input, select, textarea {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'SolaimanLipi', sans-serif;
+  }
+
+  button {
+    color: var(--foreground);
+    font-family: 'SolaimanLipi', sans-serif;
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -133,6 +140,13 @@ h1, h2, h3, h4, h5, h6 {
     margin: 6mm;
   }
 
+  html, body, #app, main, div {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
   html, body {
     background: white !important;
     color: black !important;
@@ -152,15 +166,25 @@ h1, h2, h3, h4, h5, h6 {
 
   .statement-print-area {
     display: block !important;
-    position: fixed !important;
+    position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
     height: auto !important;
+    overflow: visible !important;
     background: white !important;
     color: black !important;
     padding: 0 !important;
     margin: 0 !important;
     box-sizing: border-box !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  thead {
+    display: table-header-group !important;
   }
 }
