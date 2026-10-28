@@ -241,9 +241,9 @@
   }
 </script>
 
-<div class="h-full flex flex-col overflow-y-auto p-4 md:p-6 space-y-5" onscroll={handleScroll}>
+<div class="h-full flex flex-col overflow-hidden p-4 md:p-6 space-y-4">
   <!-- Minimal Header -->
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  <div class="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
     <div>
       <h1 class="text-2xl font-normal text-slate-900 dark:text-white">All Records & Audit Logs</h1>
       <p class="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Comprehensive audit history of received and delivered yarn challans.</p>
@@ -256,7 +256,7 @@
   </div>
 
   <!-- Filter & Search Controls -->
-  <div class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl p-3.5 shadow-xs">
+  <div class="shrink-0 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl p-3.5 shadow-xs">
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-2.5 items-center">
       <!-- Client Name Filter -->
       <div class="md:col-span-3 relative">
@@ -358,14 +358,14 @@
   </div>
 
   <!-- Audit Logs Spreadsheet Table -->
-  <div class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-xs">
+  <div class="flex-1 min-h-0 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl flex flex-col overflow-hidden shadow-xs">
     {#if auditLogs.length === 0}
       <div class="py-16 text-center text-slate-400">
         <Receipt class="h-10 w-10 mx-auto mb-2 text-slate-300 dark:text-neutral-700 stroke-1" />
         <p class="font-medium text-sm">No audit logs found</p>
       </div>
     {:else}
-      <div class="overflow-x-auto">
+      <div class="flex-1 overflow-auto" onscroll={handleScroll}>
         <table class="w-full text-left text-xs border-collapse">
           <thead class="bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-neutral-300 border-b border-slate-200 dark:border-neutral-700 text-[11px] font-semibold">
             <tr>

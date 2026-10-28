@@ -51,6 +51,21 @@
   const getTodayString = () => new Date().toISOString().split('T')[0];
   let todayDate = $state(getTodayString());
 
+  // Scroll Container References for Tally Grids
+  let rxContainer = $state<HTMLElement | null>(null);
+  let dxContainer = $state<HTMLElement | null>(null);
+
+  function scrollTallyToBottom() {
+    setTimeout(() => {
+      if (rxContainer) {
+        rxContainer.scrollTop = rxContainer.scrollHeight;
+      }
+      if (dxContainer) {
+        dxContainer.scrollTop = dxContainer.scrollHeight;
+      }
+    }, 50);
+  }
+
   // Filtered autocomplete suggestions - multi-word token matching
   let autocompleteSuggestions = $derived.by(() => {
     if (!searchQuery.trim()) return [];
@@ -383,6 +398,7 @@
     });
 
     todayDeliveredList = dx;
+    scrollTallyToBottom();
   }
 
   function addRxDraftRow() {
@@ -553,7 +569,7 @@
   }
 </script>
 
-<div class="h-full flex flex-col relative overflow-hidden bg-slate-100 dark:bg-black text-slate-900 dark:text-slate-100 font-sans">
+<div class="h-full flex flex-col relative overflow-hidden bg-slate-100 dark:bg-black text-slate-900 dark:text-slate-100 font-sans print:hidden">
   {#if !selectedClient}
     <!-- INITIAL CENTERED SEARCH SCREEN -->
     <div in:fade={{ duration: 250 }} out:fade={{ duration: 150 }} class="flex-1 flex flex-col items-center justify-center p-6">
@@ -752,7 +768,7 @@
           </div>
 
           <!-- Existing Entries Spreadsheet Table (Scrollable, Ascending Order) -->
-          <div class="flex-1 overflow-auto">
+          <div class="flex-1 overflow-auto" bind:this={rxContainer}>
             <table class="w-full text-left text-xs border-collapse font-sans">
               <thead class="bg-slate-200 dark:bg-neutral-800 text-slate-700 dark:text-neutral-200 font-semibold text-xs sticky top-0 z-10 border-b border-slate-300 dark:border-neutral-700">
                 <tr class="divide-x divide-slate-300 dark:divide-neutral-700">
@@ -1017,7 +1033,7 @@
           </div>
 
           <!-- Existing Entries Spreadsheet Table (Scrollable, Ascending Order) -->
-          <div class="flex-1 overflow-auto">
+          <div class="flex-1 overflow-auto" bind:this={dxContainer}>
             <table class="w-full text-left text-xs border-collapse font-sans">
               <thead class="bg-slate-200 dark:bg-neutral-800 text-slate-700 dark:text-neutral-200 font-semibold text-xs sticky top-0 z-10 border-b border-slate-300 dark:border-neutral-700">
                 <tr class="divide-x divide-slate-300 dark:divide-neutral-700">
@@ -1483,32 +1499,36 @@
 <!-- PRINT-ONLY STATEMENT CHART (A4 LANDSCAPE, MINIMAL DESIGN) -->
 {#if selectedClient}
   <div class="hidden print:block statement-print-area text-black font-sans w-full">
-    <!-- Main Headline Header -->
-    <div class="mb-3 text-center border-b-2 border-black pb-2 space-y-0.5">
-      <h1 class="text-2xl font-bold tracking-tight text-black m-0 leading-tight uppercase">
-        M/S A.B.S Knit Fabrics
-      </h1>
-      <div class="text-xs font-semibold text-neutral-800 tracking-wide uppercase">
-        100% Export Oriented Knitting Factory
+    <!-- Main Headline Header (Repeated on every page in print) -->
+    <div class="statement-print-header">
+      <div class="text-center border-b-2 border-black pb-1 mb-1 space-y-0.5">
+        <h1 class="text-xl font-bold tracking-tight text-black m-0 leading-tight uppercase">
+          M/S A.B.S Knit Fabrics
+        </h1>
+        <div class="text-[11px] font-semibold text-neutral-800 tracking-wide uppercase">
+          100% Export Oriented Knitting Factory
+        </div>
+        <div class="text-[9px] text-neutral-600 font-normal">
+          Plot Number B-7, Bscic I/A, Fatullah, Narayanganj. Mobile: 01681068707
+        </div>
       </div>
-      <div class="text-[10px] text-neutral-600 font-normal">
-        Plot Number B-7, Bscic I/A, Fatullah, Narayanganj. Mobile: 01681068707
+
+      <div class="border-b border-black pb-1 flex items-baseline justify-between text-xs">
+        <div>
+          <span class="text-[9px] uppercase tracking-wider text-neutral-600 block font-semibold">Client Statement</span>
+          <h2 class="text-base font-bold text-black m-0 leading-tight">{selectedClient.name}</h2>
+        </div>
+        <div class="text-right text-xs text-black font-mono">
+          <span class="font-bold">Date Range:</span> {statementStartDate || 'Beginning'} &mdash; {statementEndDate || 'Present'}
+        </div>
       </div>
     </div>
 
-    <!-- Client Name & Date Range Subheader -->
-    <div class="mb-3 border-b border-black pb-1.5 flex items-baseline justify-between">
-      <div>
-        <span class="text-[10px] uppercase tracking-wider text-neutral-600 block font-semibold">Client Statement</span>
-        <h2 class="text-lg font-bold text-black m-0 leading-tight">{selectedClient.name}</h2>
-      </div>
-      <div class="text-right text-xs text-black font-mono">
-        <span class="font-bold">Date Range:</span> {statementStartDate || 'Beginning'} &mdash; {statementEndDate || 'Present'}
-      </div>
-    </div>
+    <!-- Footer for Page Numbers (Repeated on every page in print) -->
+    <div class="statement-print-footer"></div>
 
     <!-- Dual Side-By-Side Tally Charts in Landscape -->
-    <div class="grid grid-cols-2 gap-3 text-xs">
+    <div class="grid grid-cols-2 gap-3 text-xs pt-1">
 
       <!-- LEFT: RECEIVED TALLY CHART -->
       <div class="border border-black p-1.5">
