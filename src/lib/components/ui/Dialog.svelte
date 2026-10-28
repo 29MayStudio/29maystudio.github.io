@@ -7,6 +7,7 @@
     open: boolean;
     title?: string;
     description?: string;
+    variant?: 'default' | 'warning';
     onclose: () => void;
     children?: Snippet;
     footer?: Snippet;
@@ -17,6 +18,7 @@
     open = $bindable(false),
     title,
     description,
+    variant = 'default',
     onclose,
     children,
     footer,
@@ -42,7 +44,10 @@
     <!-- Modal content -->
     <div
       class={cn(
-        'relative w-full max-h-[90vh] flex flex-col rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-xl transition-all my-auto text-slate-900 dark:text-slate-100',
+        'relative w-full max-h-[90vh] flex flex-col rounded-xl bg-white dark:bg-slate-900 border p-6 shadow-xl transition-all my-auto text-slate-900 dark:text-slate-100',
+        variant === 'warning'
+          ? 'border-rose-500/50 dark:border-rose-500/60 ring-2 ring-rose-500/30'
+          : 'border-slate-200 dark:border-slate-800',
         maxWidth
       )}
       onclick={(e) => e.stopPropagation()}

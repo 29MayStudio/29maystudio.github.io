@@ -38,7 +38,7 @@
   <!-- Sidebar Navigation -->
   <aside class="w-full md:w-16 h-14 md:h-full bg-white dark:bg-black border-b md:border-b-0 md:border-r border-slate-200 dark:border-neutral-800 flex flex-row md:flex-col items-center justify-between px-3 py-1.5 md:py-4 z-20 shrink-0">
     <!-- Navigation Links -->
-    <nav class="flex flex-row md:flex-col items-center justify-center md:justify-start gap-1 md:gap-0 md:space-y-3 flex-1 md:w-full md:px-2">
+    <nav class="flex flex-row md:flex-col items-center justify-center md:justify-center gap-1 md:gap-0 md:space-y-3 flex-1 md:w-full md:px-2">
       {#each navItems as item}
         <div class="relative flex items-center justify-center">
           <button
@@ -48,7 +48,7 @@
             onmouseleave={handleMouseLeave}
             class={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer ${
               activeTab === item.id
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                ? 'bg-emerald-600 text-white'
                 : 'text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-neutral-900 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >

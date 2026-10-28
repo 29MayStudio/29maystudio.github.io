@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { db, type ReceivedRecord, type DeliveredRecord } from '../db';
+  import { db, type ReceivedRecord, type DeliveredRecord, type FabricType, type Dia, type Client } from '../db';
+  import * as XLSX from 'xlsx';
   import Card from './ui/Card.svelte';
   import Button from './ui/Button.svelte';
   import Input from './ui/Input.svelte';
   import Dialog from './ui/Dialog.svelte';
-  import { Receipt, Search, Eye, X, Download } from 'lucide-svelte';
+  import { Receipt, Search, Eye, X, Download, FileSpreadsheet } from 'lucide-svelte';
 
   type AuditLogEntry = {
     id?: number;
@@ -16,18 +17,31 @@
     rawRecord: ReceivedRecord | DeliveredRecord;
   };
 
-  let searchFilter = $state('');
+  let nameFilter = $state('');
+  let yarnFilter = $state('');
+  let diaFilter = $state('');
   let dateFilter = $state('');
   let typeFilter = $state<'all' | 'received' | 'delivered'>('all');
 
   let receivedList = $state<ReceivedRecord[]>([]);
   let deliveredList = $state<DeliveredRecord[]>([]);
+  let fabricTypes = $state<FabricType[]>([]);
+  let dias = $state<Dia[]>([]);
+  let clientsList = $state<Client[]>([]);
+
   let selectedRecord = $state<AuditLogEntry | null>(null);
+
+  // Excel Export Modal state
+  let isExcelModalOpen = $state(false);
+  let selectedExportTarget = $state<string>('ALL'); // 'ALL' or client.id as string
 
   async function loadRecords() {
     try {
       receivedList = await db.receivedRecords.orderBy('timestamp').reverse().toArray();
       deliveredList = await db.deliveredRecords.orderBy('timestamp').reverse().toArray();
+      fabricTypes = await db.fabricTypes.orderBy('name').toArray();
+      dias = await db.dias.toArray();
+      clientsList = await db.clients.orderBy('name').toArray();
     } catch (e) {
       console.error('Failed to load records:', e);
     }
@@ -76,9 +90,29 @@
     let logs = [...rx, ...dx];
     logs.sort((a, b) => new Date(b.rawRecord.timestamp).getTime() - new Date(a.rawRecord.timestamp).getTime());
 
-    if (searchFilter.trim()) {
-      const q = searchFilter.toLowerCase().trim();
+    if (nameFilter.trim()) {
+      const q = nameFilter.toLowerCase().trim();
       logs = logs.filter((log) => log.client_name.toLowerCase().includes(q));
+    }
+
+    if (yarnFilter.trim()) {
+      const y = yarnFilter.toLowerCase().trim();
+      logs = logs.filter((log) => {
+        const rec = log.rawRecord;
+        if (rec.yarn_count && rec.yarn_count.toLowerCase() === y) return true;
+        if (rec.items && rec.items.some((i) => i.yarn_count.toLowerCase() === y)) return true;
+        return false;
+      });
+    }
+
+    if (diaFilter.trim()) {
+      const d = diaFilter.toLowerCase().trim();
+      logs = logs.filter((log) => {
+        const rec = log.rawRecord;
+        if ('dia' in rec && rec.dia && rec.dia.toLowerCase() === d) return true;
+        if (rec.items && rec.items.some((i) => 'dia' in i && (i as any).dia && (i as any).dia.toLowerCase() === d)) return true;
+        return false;
+      });
     }
 
     if (dateFilter) {
@@ -100,39 +134,87 @@
     selectedRecord = null;
   }
 
-  function exportCSV() {
-    if (auditLogs.length === 0) return;
+  function openExcelModal() {
+    selectedExportTarget = 'ALL';
+    isExcelModalOpen = true;
+  }
 
-    const exportData = auditLogs.map((log) => {
+  function generateExcelForClientRecords(clientName: string, logs: AuditLogEntry[]) {
+    const rows: any[] = [];
+
+    logs.forEach((log) => {
       const rec = log.rawRecord;
-      return {
-        Date: log.date,
-        Time: log.time,
-        Client: log.client_name,
-        Type: log.type,
-        'CH No.': rec.ch_no || '-',
-        'Yarn Count': rec.yarn_count || '-',
-        Lot: rec.lot || '-',
-        Dia: 'dia' in rec ? rec.dia : '-',
-        'Bags / Rolls': 'bags' in rec ? rec.bags : 'rolls' in rec ? rec.rolls : '-',
-        'Weight (Kg)': rec.weight_kg,
-        'Total Weight (Kg)': rec.total_weight_kg
-      };
+      const items = rec.items && rec.items.length > 0
+        ? rec.items
+        : [{
+            yarn_count: rec.yarn_count,
+            lot: rec.lot,
+            dia: 'dia' in rec ? rec.dia : undefined,
+            bags: 'bags' in rec ? rec.bags : undefined,
+            rolls: 'rolls' in rec ? rec.rolls : undefined,
+            weight_kg: rec.weight_kg
+          }];
+
+      items.forEach((item, itemIdx) => {
+        rows.push({
+          'Date': itemIdx === 0 ? log.date : '',
+          'Time': itemIdx === 0 ? log.time : '',
+          'Client': itemIdx === 0 ? log.client_name : '',
+          'Type': itemIdx === 0 ? log.type : '',
+          'CH No.': itemIdx === 0 ? (rec.ch_no || '-') : '',
+          'Yarn Count': item.yarn_count || '-',
+          'Lot': item.lot || '-',
+          'Dia': 'dia' in item && (item as any).dia ? (item as any).dia : ('dia' in rec ? rec.dia : '-'),
+          'Bags': 'bags' in item && item.bags !== undefined ? item.bags : ('bags' in rec ? rec.bags : '-'),
+          'Rolls': 'rolls' in item && item.rolls !== undefined ? item.rolls : ('rolls' in rec ? rec.rolls : '-'),
+          'Item Weight (Kg)': item.weight_kg,
+          'Total Weight (Kg)': itemIdx === 0 ? (rec.total_weight_kg || rec.weight_kg) : ''
+        });
+      });
     });
 
-    const headers = Object.keys(exportData[0]);
-    const rows = exportData.map((obj) =>
-      headers.map((h) => `"${String((obj as any)[h] || '').replace(/"/g, '""')}"`).join(',')
-    );
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Tally Records');
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `audit_logs_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const cleanClient = clientName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const filename = `${cleanClient}_Tally_Records_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+  }
+
+  function handleExecuteExcelExport() {
+    isExcelModalOpen = false;
+
+    if (selectedExportTarget === 'ALL') {
+      // Group audit logs by Client Name
+      const groups = new Map<string, AuditLogEntry[]>();
+      auditLogs.forEach((log) => {
+        const list = groups.get(log.client_name) || [];
+        list.push(log);
+        groups.set(log.client_name, list);
+      });
+
+      if (groups.size === 0) {
+        alert('No records available to export.');
+        return;
+      }
+
+      groups.forEach((logs, clientName) => {
+        generateExcelForClientRecords(clientName, logs);
+      });
+    } else {
+      const clientId = Number(selectedExportTarget);
+      const client = clientsList.find((c) => c.id === clientId);
+      if (!client) return;
+
+      const clientLogs = auditLogs.filter((log) => log.client_name === client.name);
+      if (clientLogs.length === 0) {
+        alert(`No records found for ${client.name}.`);
+        return;
+      }
+
+      generateExcelForClientRecords(client.name, clientLogs);
+    }
   }
 </script>
 
@@ -144,37 +226,63 @@
       <p class="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Comprehensive audit history of received and delivered yarn challans.</p>
     </div>
 
-    <Button variant="outline" size="sm" onclick={exportCSV} class="flex items-center gap-1.5 cursor-pointer shrink-0 text-xs">
-      <Download class="h-3.5 w-3.5" />
-      <span>Export CSV</span>
+    <Button variant="default" size="sm" onclick={openExcelModal} class="flex items-center gap-1.5 cursor-pointer shrink-0 text-xs">
+      <FileSpreadsheet class="h-4 w-4" />
+      <span>Export Excel</span>
     </Button>
   </div>
 
   <!-- Filter & Search Controls -->
   <div class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl p-3.5 shadow-xs">
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-      <!-- Client Search -->
-      <div class="md:col-span-5 relative">
-        <Search class="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-2.5 items-center">
+      <!-- Client Name Filter -->
+      <div class="md:col-span-3 relative">
+        <Search class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
         <Input
           type="text"
-          placeholder="Filter by Client Name..."
-          bind:value={searchFilter}
+          placeholder="Filter by Client..."
+          bind:value={nameFilter}
           class="pl-8 h-8 text-xs bg-slate-50 dark:bg-neutral-800 border-none"
         />
       </div>
 
+      <!-- Yarn Type Filter Dropdown -->
+      <div class="md:col-span-2">
+        <select
+          bind:value={yarnFilter}
+          class="w-full h-8 px-2 rounded-xl text-xs bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+        >
+          <option value="">All Yarn Types</option>
+          {#each fabricTypes as fabric}
+            <option value={fabric.name}>{fabric.name}</option>
+          {/each}
+        </select>
+      </div>
+
+      <!-- Dia Filter Dropdown -->
+      <div class="md:col-span-2">
+        <select
+          bind:value={diaFilter}
+          class="w-full h-8 px-2 rounded-xl text-xs bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+        >
+          <option value="">All Dias</option>
+          {#each dias as dia}
+            <option value={dia.value}>{dia.value}</option>
+          {/each}
+        </select>
+      </div>
+
       <!-- Date Filter -->
-      <div class="md:col-span-3 relative">
+      <div class="md:col-span-2">
         <Input type="date" bind:value={dateFilter} class="h-8 text-xs bg-slate-50 dark:bg-neutral-800 border-none" />
       </div>
 
       <!-- Type Filter Buttons -->
-      <div class="md:col-span-3 flex bg-slate-100 dark:bg-neutral-800 p-0.5 rounded-xl">
+      <div class="md:col-span-2 flex bg-slate-100 dark:bg-neutral-800 p-0.5 rounded-xl">
         <button
           type="button"
           onclick={() => (typeFilter = 'all')}
-          class={`flex-1 py-1 text-xs font-semibold rounded-lg transition-all ${
+          class={`flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
             typeFilter === 'all'
               ? 'bg-white dark:bg-neutral-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-500'
@@ -185,7 +293,7 @@
         <button
           type="button"
           onclick={() => (typeFilter = 'received')}
-          class={`flex-1 py-1 text-xs font-semibold rounded-lg transition-all ${
+          class={`flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
             typeFilter === 'received'
               ? 'bg-blue-600 text-white shadow-xs'
               : 'text-slate-500'
@@ -196,7 +304,7 @@
         <button
           type="button"
           onclick={() => (typeFilter = 'delivered')}
-          class={`flex-1 py-1 text-xs font-semibold rounded-lg transition-all ${
+          class={`flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
             typeFilter === 'delivered'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-slate-500'
@@ -212,11 +320,13 @@
           variant="ghost"
           size="sm"
           onclick={() => {
-            searchFilter = '';
+            nameFilter = '';
+            yarnFilter = '';
+            diaFilter = '';
             dateFilter = '';
             typeFilter = 'all';
           }}
-          class="w-full h-8 text-xs cursor-pointer"
+          class="w-full h-8 text-xs cursor-pointer px-1"
         >
           Reset
         </Button>
@@ -319,6 +429,61 @@
     {/if}
   </div>
 </div>
+
+<!-- Excel Export Dialog Modal -->
+<Dialog open={isExcelModalOpen} onclose={() => (isExcelModalOpen = false)} title="Export Excel Records" maxWidth="max-w-md">
+  <div class="space-y-4 text-xs">
+    <p class="text-slate-500 dark:text-neutral-400">Select whether to export records for ALL clients into separate Excel files or choose a specific client.</p>
+
+    <div class="space-y-2 bg-slate-50 dark:bg-neutral-800 p-3.5 rounded-xl border border-slate-200 dark:border-neutral-700">
+      <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-neutral-700/60 cursor-pointer font-bold text-slate-900 dark:text-white">
+        <input
+          type="radio"
+          name="exportTarget"
+          value="ALL"
+          bind:group={selectedExportTarget}
+          class="accent-emerald-600 w-4 h-4"
+        />
+        <span>ALL Clients (Generate separate .xlsx file for each client)</span>
+      </label>
+
+      <div class="border-t border-slate-200 dark:border-neutral-700 my-1 pt-2">
+        <div class="text-[11px] font-semibold text-slate-400 dark:text-neutral-400 mb-2 px-1">Or Select One Client:</div>
+        <div class="max-h-44 overflow-y-auto space-y-1 pr-1">
+          {#each clientsList as client}
+            <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-neutral-700/60 cursor-pointer text-slate-800 dark:text-slate-200">
+              <input
+                type="radio"
+                name="exportTarget"
+                value={String(client.id)}
+                bind:group={selectedExportTarget}
+                class="accent-emerald-600 w-4 h-4"
+              />
+              <span class="font-medium">{client.name}</span>
+            </label>
+          {/each}
+        </div>
+      </div>
+    </div>
+
+    <div class="pt-3 border-t border-slate-100 dark:border-neutral-800 flex justify-end gap-2">
+      <button
+        type="button"
+        onclick={() => (isExcelModalOpen = false)}
+        class="px-4 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-neutral-800 cursor-pointer"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onclick={handleExecuteExcelExport}
+        class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+      >
+        <FileSpreadsheet class="w-4 h-4" /> Download Excel
+      </button>
+    </div>
+  </div>
+</Dialog>
 
 <!-- Complete Data Record Detail Popup Modal -->
 <Dialog open={selectedRecord !== null} onclose={closeDetailModal} title="Record Detail Log" maxWidth="max-w-lg">
