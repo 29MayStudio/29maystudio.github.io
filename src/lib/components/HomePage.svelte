@@ -15,6 +15,7 @@
     UserCheck,
     Plus,
     Trash2,
+    AlertTriangle,
     Calendar,
     ArrowDownLeft,
     ArrowUpRight,
@@ -44,21 +45,42 @@
   let searchQuery = $state('');
   let isSearchFocused = $state(false);
   let selectedClient = $state<Client | null>(null);
+  let highlightedIndex = $state<number>(0);
 
   // Today Date Helper
   const getTodayString = () => new Date().toISOString().split('T')[0];
   let todayDate = $state(getTodayString());
 
-  // Filtered autocomplete suggestions - only show suggestions if user typed at least 1 character
+  // Filtered autocomplete suggestions - multi-word token matching
   let autocompleteSuggestions = $derived.by(() => {
     if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return allClients.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.phone && c.phone.toLowerCase().includes(q))
-    );
+    const tokens = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    return allClients.filter((c) => {
+      const targetStr = `${c.name} ${c.phone || ''} ${c.address || ''}`.toLowerCase();
+      return tokens.every((token) => targetStr.includes(token));
+    });
   });
+
+  function handleSearchKeydown(e: KeyboardEvent) {
+    const list = autocompleteSuggestions;
+    if (list.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      highlightedIndex = (highlightedIndex + 1) % list.length;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      highlightedIndex = (highlightedIndex - 1 + list.length) % list.length;
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (list[highlightedIndex]) {
+        selectClient(list[highlightedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      searchQuery = '';
+      isSearchFocused = false;
+    }
+  }
 
   // Client's Records
   let todayReceivedList = $state<ReceivedRecord[]>([]);
@@ -550,7 +572,11 @@
             <input
               type="text"
               bind:value={searchQuery}
-              onfocus={() => (isSearchFocused = true)}
+              onfocus={() => {
+                isSearchFocused = true;
+                highlightedIndex = 0;
+              }}
+              onkeydown={handleSearchKeydown}
               placeholder="Type client name to search autocomplete..."
               class="w-full py-4 px-4 bg-transparent text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 text-lg font-medium focus:outline-none"
             />
@@ -587,14 +613,23 @@
                   <div class="px-3 py-1.5 text-xs font-semibold text-slate-400 dark:text-neutral-500">
                     Select a Client from List:
                   </div>
-                  {#each autocompleteSuggestions as client}
+                  {#each autocompleteSuggestions as client, idx}
                     <button
                       type="button"
                       onclick={() => selectClient(client)}
-                      class="w-full text-left px-4 py-3.5 hover:bg-emerald-50 dark:hover:bg-neutral-800/80 rounded-xl transition-all flex items-center justify-between group cursor-pointer"
+                      onmouseenter={() => (highlightedIndex = idx)}
+                      class={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between group cursor-pointer ${
+                        highlightedIndex === idx
+                          ? 'bg-emerald-50 dark:bg-neutral-800/90 ring-1 ring-emerald-500/30'
+                          : 'hover:bg-emerald-50 dark:hover:bg-neutral-800/80'
+                      }`}
                     >
                       <div>
-                        <div class="font-bold text-slate-900 dark:text-white text-base group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                        <div class={`font-bold text-base transition-colors ${
+                          highlightedIndex === idx
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : 'text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400'
+                        }`}>
                           {client.name}
                         </div>
                         {#if client.phone || client.address}
@@ -604,7 +639,11 @@
                           </div>
                         {/if}
                       </div>
-                      <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-neutral-800 group-hover:bg-emerald-600 group-hover:text-white flex items-center justify-center text-slate-400 transition-colors shrink-0">
+                      <div class={`w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0 ${
+                        highlightedIndex === idx
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-100 dark:bg-neutral-800 group-hover:bg-emerald-600 group-hover:text-white text-slate-400'
+                      }`}>
                         <Check class="w-4 h-4" />
                       </div>
                     </button>
@@ -648,7 +687,7 @@
                 <button
                   type="button"
                   onclick={openStatementModal}
-                  class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                  class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <FileText class="w-4 h-4" /> Statement
                 </button>
@@ -959,7 +998,7 @@
               <button
                 type="button"
                 onclick={addReceivedRow}
-                class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
+                class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus class="w-4 h-4" /> Save Received Entry
               </button>
@@ -1236,7 +1275,7 @@
               <button
                 type="button"
                 onclick={addDeliveredRow}
-                class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
+                class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus class="w-4 h-4" /> Save Delivered Entry
               </button>
@@ -1250,23 +1289,30 @@
 </div>
 
 <!-- CUSTOM CONFIRMATION DIALOG -->
-<Dialog open={confirmModal.open} onclose={() => (confirmModal.open = false)} title={confirmModal.title} maxWidth="max-w-sm">
-  <p class="text-sm text-slate-600 dark:text-slate-300 my-2">{confirmModal.message}</p>
-  <div class="mt-4 flex justify-end gap-2">
-    <button
-      type="button"
-      onclick={() => (confirmModal.open = false)}
-      class="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-semibold text-slate-700 dark:text-neutral-300 cursor-pointer"
-    >
-      Cancel
-    </button>
-    <button
-      type="button"
-      onclick={confirmModal.onConfirm}
-      class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer"
-    >
-      Delete
-    </button>
+<Dialog open={confirmModal.open} onclose={() => (confirmModal.open = false)} variant="warning" maxWidth="max-w-sm">
+  <div class="flex flex-col items-center text-center p-2">
+    <div class="w-12 h-12 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-3">
+      <AlertTriangle class="w-6 h-6" />
+    </div>
+    <h2 class="text-lg font-bold text-rose-600 dark:text-rose-400 mb-1">{confirmModal.title}</h2>
+    <p class="text-xs text-slate-600 dark:text-neutral-300 my-1">{confirmModal.message}</p>
+
+    <div class="mt-4 w-full flex justify-end gap-2 pt-2 border-t border-rose-500/10">
+      <button
+        type="button"
+        onclick={() => (confirmModal.open = false)}
+        class="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-semibold text-slate-700 dark:text-neutral-300 cursor-pointer"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onclick={confirmModal.onConfirm}
+        class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer"
+      >
+        Delete Entry
+      </button>
+    </div>
   </div>
 </Dialog>
 
@@ -1425,7 +1471,7 @@
         <button
           type="button"
           onclick={handlePrintStatement}
-          class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer transition-all"
+          class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all"
         >
           <Printer class="w-4 h-4" /> Print Statement
         </button>
@@ -1437,11 +1483,24 @@
 <!-- PRINT-ONLY STATEMENT CHART (A4 LANDSCAPE, MINIMAL DESIGN) -->
 {#if selectedClient}
   <div class="hidden print:block statement-print-area text-black font-sans w-full">
-    <!-- Header: Client Name & Date Range -->
-    <div class="mb-3 border-b border-black pb-2 flex items-baseline justify-between">
+    <!-- Main Headline Header -->
+    <div class="mb-3 text-center border-b-2 border-black pb-2 space-y-0.5">
+      <h1 class="text-2xl font-bold tracking-tight text-black m-0 leading-tight uppercase">
+        M/S A.B.S Knit Fabrics
+      </h1>
+      <div class="text-xs font-semibold text-neutral-800 tracking-wide uppercase">
+        100% Export Oriented Knitting Factory
+      </div>
+      <div class="text-[10px] text-neutral-600 font-normal">
+        Plot Number B-7, Bscic I/A, Fatullah, Narayanganj. Mobile: 01681068707
+      </div>
+    </div>
+
+    <!-- Client Name & Date Range Subheader -->
+    <div class="mb-3 border-b border-black pb-1.5 flex items-baseline justify-between">
       <div>
         <span class="text-[10px] uppercase tracking-wider text-neutral-600 block font-semibold">Client Statement</span>
-        <h1 class="text-xl font-bold text-black m-0 leading-tight">{selectedClient.name}</h1>
+        <h2 class="text-lg font-bold text-black m-0 leading-tight">{selectedClient.name}</h2>
       </div>
       <div class="text-right text-xs text-black font-mono">
         <span class="font-bold">Date Range:</span> {statementStartDate || 'Beginning'} &mdash; {statementEndDate || 'Present'}
