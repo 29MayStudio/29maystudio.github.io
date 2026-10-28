@@ -1499,36 +1499,43 @@
 <!-- PRINT-ONLY STATEMENT CHART (A4 LANDSCAPE, MINIMAL DESIGN) -->
 {#if selectedClient}
   <div class="hidden print:block statement-print-area text-black font-sans w-full">
-    <!-- Main Headline Header (Repeated on every page in print) -->
-    <div class="statement-print-header">
-      <div class="text-center border-b-2 border-black pb-1 mb-1 space-y-0.5">
-        <h1 class="text-xl font-bold tracking-tight text-black m-0 leading-tight uppercase">
-          M/S A.B.S Knit Fabrics
-        </h1>
-        <div class="text-[11px] font-semibold text-neutral-800 tracking-wide uppercase">
-          100% Export Oriented Knitting Factory
-        </div>
-        <div class="text-[9px] text-neutral-600 font-normal">
-          Plot Number B-7, Bscic I/A, Fatullah, Narayanganj. Mobile: 01681068707
-        </div>
-      </div>
+    <table class="w-full border-collapse">
+      <!-- Main Headline Header (Repeated on every page in print) -->
+      <thead>
+        <tr>
+          <th class="font-normal text-left p-0 pb-1">
+            <div class="statement-print-header w-full">
+              <div class="text-center border-b-2 border-black pb-1 mb-1 space-y-0.5">
+                <h1 class="text-xl font-bold tracking-tight text-black m-0 leading-tight uppercase">
+                  M/S A.B.S Knit Fabrics
+                </h1>
+                <div class="text-[11px] font-semibold text-neutral-800 tracking-wide uppercase">
+                  100% Export Oriented Knitting Factory
+                </div>
+                <div class="text-[9px] text-neutral-600 font-normal">
+                  Plot Number B-7, Bscic I/A, Fatullah, Narayanganj. Mobile: 01681068707
+                </div>
+              </div>
 
-      <div class="border-b border-black pb-1 flex items-baseline justify-between text-xs">
-        <div>
-          <span class="text-[9px] uppercase tracking-wider text-neutral-600 block font-semibold">Client Statement</span>
-          <h2 class="text-base font-bold text-black m-0 leading-tight">{selectedClient.name}</h2>
-        </div>
-        <div class="text-right text-xs text-black font-mono">
-          <span class="font-bold">Date Range:</span> {statementStartDate || 'Beginning'} &mdash; {statementEndDate || 'Present'}
-        </div>
-      </div>
-    </div>
+              <div class="border-b border-black pb-1 flex items-baseline justify-between text-xs">
+                <div>
+                  <span class="text-[9px] uppercase tracking-wider text-neutral-600 block font-semibold">Client Statement</span>
+                  <h2 class="text-base font-bold text-black m-0 leading-tight">{selectedClient.name}</h2>
+                </div>
+                <div class="text-right text-xs text-black font-mono">
+                  <span class="font-bold">Date Range:</span> {statementStartDate || 'Beginning'} &mdash; {statementEndDate || 'Present'}
+                </div>
+              </div>
+            </div>
+          </th>
+        </tr>
+      </thead>
 
-    <!-- Footer for Page Numbers (Repeated on every page in print) -->
-    <div class="statement-print-footer"></div>
-
-    <!-- Dual Side-By-Side Tally Charts in Landscape -->
-    <div class="grid grid-cols-2 gap-3 text-xs pt-1">
+      <tbody>
+        <tr>
+          <td class="p-0 align-top">
+            <!-- Dual Side-By-Side Tally Charts in Landscape -->
+            <div class="grid grid-cols-2 gap-3 text-xs pt-1">
 
       <!-- LEFT: RECEIVED TALLY CHART -->
       <div class="border border-black p-1.5">
@@ -1651,7 +1658,14 @@
         </table>
       </div>
 
-    </div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Footer for Page Numbers (Repeated on every page in print) -->
+    <div class="statement-print-footer"></div>
   </div>
 {/if}
 

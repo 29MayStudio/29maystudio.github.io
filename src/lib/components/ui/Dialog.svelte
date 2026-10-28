@@ -37,7 +37,7 @@
 {#if open}
   <!-- Backdrop -->
   <div
-    class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in-0 flex items-center justify-center p-4 overflow-y-auto"
+    class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in-0 flex items-center justify-center p-4 overflow-y-auto print:hidden"
     onclick={onclose}
     role="presentation"
   >
