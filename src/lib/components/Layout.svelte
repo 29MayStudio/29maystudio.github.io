@@ -1,16 +1,16 @@
 <script lang="ts">
   import {
-    FolderCog,
     Receipt,
     Home
   } from 'lucide-svelte';
 
   interface Props {
     activeTab: string;
+    onHomeClick?: () => void;
     children?: any;
   }
 
-  let { activeTab = $bindable('home'), children }: Props = $props();
+  let { activeTab = $bindable('home'), onHomeClick, children }: Props = $props();
 
   let hoveredTab = $state<string | null>(null);
   let hoverTimer: any = null;
@@ -29,8 +29,7 @@
 
   const navItems = [
     { id: 'home', label: 'Home (Received & Delivered)', icon: Home },
-    { id: 'add', label: 'Add (Clients, Yarn Types & Dias)', icon: FolderCog },
-    { id: 'records', label: 'Records & Audit Logs', icon: Receipt },
+    { id: 'records', label: 'All Records & Audit Logs', icon: Receipt },
   ];
 </script>
 
@@ -43,7 +42,12 @@
         <div class="relative flex items-center justify-center">
           <button
             type="button"
-            onclick={() => (activeTab = item.id)}
+            onclick={() => {
+              activeTab = item.id;
+              if (item.id === 'home' && onHomeClick) {
+                onHomeClick();
+              }
+            }}
             onmouseenter={() => handleMouseEnter(item.id)}
             onmouseleave={handleMouseLeave}
             class={`w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center transition-all duration-200 cursor-pointer ${
