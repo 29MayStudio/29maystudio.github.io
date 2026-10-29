@@ -1143,7 +1143,7 @@
       </div>
 
       <!-- Right Action Sidebar (Icon-Only Buttons Bar, matching Left Nav Sidebar) -->
-      <aside class="w-10 md:w-11 h-full bg-white dark:bg-black border-l border-slate-200 dark:border-neutral-800 flex flex-col items-center justify-start py-3 gap-2.5 shrink-0 z-20 print:hidden">
+      <aside class="w-10 md:w-11 h-full bg-white dark:bg-black border-l border-slate-200 dark:border-neutral-800 flex flex-col items-center justify-center py-3 gap-2.5 shrink-0 z-20 print:hidden">
         <!-- + Add Data Button (Plus icon) -->
         <div class="relative flex items-center justify-center">
           <button
