@@ -159,6 +159,9 @@
     return Number((rxSum - dxSum).toFixed(2));
   }
 
+  // Right Bar Tooltip Hover state
+  let rightBarHovered = $state<string | null>(null);
+
   // Add Entry Modal state
   let isAddModalOpen = $state(false);
   let addEntryMode = $state<'received' | 'delivered'>('received');
@@ -737,87 +740,68 @@
 
   {:else}
     <!-- SELECTED CLIENT TOP SCREEN WITH TALLY / EXCEL GRID -->
-    <div in:fade={{ duration: 250 }} out:fade={{ duration: 150 }} class="h-full flex flex-col overflow-hidden bg-white dark:bg-black">
-      <!-- Compact Top Header Bar -->
-      <header class="bg-white dark:bg-neutral-900 border-b border-slate-200 dark:border-neutral-800 px-4 py-2 shrink-0 shadow-xs transition-all">
-        <div class="flex items-center justify-between gap-3">
-          <!-- Client Name Title & Address -->
-          <div class="flex items-center gap-3">
-            <div>
-              <h1 class="text-xl font-normal text-slate-900 dark:text-white leading-tight">
-                {selectedClient.name}
-              </h1>
-              {#if selectedClient.address}
-                <div class="text-[11px] text-slate-500 dark:text-neutral-400">
-                  {selectedClient.address}
-                </div>
-              {/if}
-            </div>
-          </div>
-
-          <!-- Top Search, Add Data, Statement Print & Client Switcher Actions -->
-          <div class="flex items-center gap-2">
-            <div class="relative w-48 md:w-60">
-              <input
-                type="text"
-                bind:value={searchQuery}
-                placeholder="Search client..."
-                class="w-full pl-8 pr-7 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                onfocus={() => (isSearchFocused = true)}
-              />
-              <Search class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-
-              {#if searchQuery.trim().length > 0 && autocompleteSuggestions.length > 0}
-                <div class="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
-                  {#each autocompleteSuggestions as client}
-                    <button
-                      type="button"
-                      onclick={() => selectClient(client)}
-                      class="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-900 dark:text-white border-b border-slate-100 dark:border-neutral-800/50 cursor-pointer"
-                    >
-                      <div>{client.name}</div>
-                    </button>
-                  {/each}
-                </div>
-              {/if}
+    <div in:fade={{ duration: 250 }} out:fade={{ duration: 150 }} class="h-full flex flex-row overflow-hidden bg-white dark:bg-black">
+      <!-- Main Content Container (Header + Dual Tally Grids) -->
+      <div class="flex-1 flex flex-col h-full overflow-hidden">
+        <!-- Compact Top Header Bar -->
+        <header class="bg-white dark:bg-neutral-900 border-b border-slate-200 dark:border-neutral-800 px-4 py-2 shrink-0 shadow-xs transition-all">
+          <div class="flex items-center justify-between gap-3">
+            <!-- Client Name Title & Address -->
+            <div class="flex items-center gap-3">
+              <div>
+                <h1 class="text-xl font-normal text-slate-900 dark:text-white leading-tight">
+                  {selectedClient.name}
+                </h1>
+                {#if selectedClient.address}
+                  <div class="text-[11px] text-slate-500 dark:text-neutral-400">
+                    {selectedClient.address}
+                  </div>
+                {/if}
+              </div>
             </div>
 
-            <!-- Add Data Button -->
-            <button
-              type="button"
-              onclick={openAddModal}
-              class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-              title="Add Entry Data"
-            >
-              <Plus class="w-4 h-4" />
-              <span>Add Data</span>
-            </button>
+            <!-- Top Search & Client Switcher Actions -->
+            <div class="flex items-center gap-2">
+              <div class="relative w-48 md:w-60">
+                <input
+                  type="text"
+                  bind:value={searchQuery}
+                  placeholder="Search client..."
+                  class="w-full pl-8 pr-7 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  onfocus={() => (isSearchFocused = true)}
+                />
+                <Search class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
 
-            <!-- Statement Button (Icon Only) -->
-            <button
-              type="button"
-              onclick={openStatementModal}
-              class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-200 transition-colors cursor-pointer shrink-0"
-              title="Client Statement / Print"
-            >
-              <Printer class="w-4 h-4" />
-            </button>
+                {#if searchQuery.trim().length > 0 && autocompleteSuggestions.length > 0}
+                  <div class="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
+                    {#each autocompleteSuggestions as client}
+                      <button
+                        type="button"
+                        onclick={() => selectClient(client)}
+                        class="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-900 dark:text-white border-b border-slate-100 dark:border-neutral-800/50 cursor-pointer"
+                      >
+                        <div>{client.name}</div>
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
 
-            <!-- Change Client Button -->
-            <button
-              type="button"
-              onclick={clearSelectedClient}
-              class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-200 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
-              title="Change client"
-            >
-              <X class="w-3.5 h-3.5" /> Change Client
-            </button>
+              <!-- Change Client Button -->
+              <button
+                type="button"
+                onclick={clearSelectedClient}
+                class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-200 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                title="Change client"
+              >
+                <X class="w-3.5 h-3.5" /> Change Client
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <!-- Main Full-Page Dual View (Received | Thick Dividing Line | Delivered) -->
-      <main class="flex-1 flex flex-col md:flex-row overflow-hidden divide-y-4 md:divide-y-0 md:divide-x-4 divide-slate-300 dark:divide-neutral-700">
+        <!-- Main Full-Page Dual View (Received | Thick Dividing Line | Delivered) -->
+        <main class="flex-1 flex flex-col md:flex-row overflow-hidden divide-y-4 md:divide-y-0 md:divide-x-4 divide-slate-300 dark:divide-neutral-700">
 
         <!-- ================= LEFT SIDE: RECEIVED ================= -->
         <section class="flex-1 flex flex-col h-full overflow-hidden bg-slate-50/50 dark:bg-neutral-950/50">
@@ -1156,6 +1140,48 @@
         </section>
 
       </main>
+      </div>
+
+      <!-- Right Action Sidebar (Icon-Only Buttons Bar, matching Left Nav Sidebar) -->
+      <aside class="w-10 md:w-11 h-full bg-white dark:bg-black border-l border-slate-200 dark:border-neutral-800 flex flex-col items-center justify-start py-3 gap-2.5 shrink-0 z-20 print:hidden">
+        <!-- + Add Data Button (Plus icon) -->
+        <div class="relative flex items-center justify-center">
+          <button
+            type="button"
+            onclick={openAddModal}
+            onmouseenter={() => (rightBarHovered = 'add')}
+            onmouseleave={() => (rightBarHovered = null)}
+            class="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs"
+          >
+            <Plus class="w-4 h-4 shrink-0" />
+          </button>
+
+          {#if rightBarHovered === 'add'}
+            <div class="absolute right-11 top-1 z-50 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+              Add Data (+ Entry)
+            </div>
+          {/if}
+        </div>
+
+        <!-- Statement / Print Button (Printer icon) -->
+        <div class="relative flex items-center justify-center">
+          <button
+            type="button"
+            onclick={openStatementModal}
+            onmouseenter={() => (rightBarHovered = 'statement')}
+            onmouseleave={() => (rightBarHovered = null)}
+            class="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs"
+          >
+            <Printer class="w-4 h-4 shrink-0" />
+          </button>
+
+          {#if rightBarHovered === 'statement'}
+            <div class="absolute right-11 top-1 z-50 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+              Client Statement / Print
+            </div>
+          {/if}
+        </div>
+      </aside>
     </div>
   {/if}
 </div>
@@ -1598,7 +1624,7 @@
           <th class="font-normal text-left p-0 pb-1">
             <div class="statement-print-header w-full">
               <div class="text-center border-b-2 border-black pb-1 mb-1 space-y-0.5">
-                <h1 class="text-xl font-bold tracking-tight text-black m-0 leading-tight uppercase">
+                <h1 class="text-3xl font-extrabold tracking-tight text-black m-0 leading-tight uppercase">
                   M/S A.B.S Knit Fabrics
                 </h1>
                 <div class="text-[11px] font-semibold text-neutral-800 tracking-wide uppercase">
