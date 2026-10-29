@@ -89,6 +89,8 @@ export class KnittingFactoryDB extends Dexie {
 
 export const db = new KnittingFactoryDB();
 
+export { dbAdapter, isTauri } from './db-adapter';
+
 export async function seedInitialData() {
   const fabricCount = await db.fabricTypes.count();
   if (fabricCount === 0) {

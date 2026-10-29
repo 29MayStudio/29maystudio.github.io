@@ -6,16 +6,23 @@
 
   let activeTab = $state('home');
   let selectedClient = $state<Client | null>(null);
-  let homePageRef = $state<{ clearSelectedClient: () => void } | null>(null);
+  let homePageRef = $state<{
+    clearSelectedClient: () => void;
+    openHomeSearch: () => void;
+    openActiveSession: () => void;
+  } | null>(null);
 
   function handleHomeClick() {
     if (homePageRef) {
-      homePageRef.clearSelectedClient();
+      homePageRef.openHomeSearch();
     }
     activeTab = 'home';
   }
 
   function handleClientSessionClick() {
+    if (homePageRef) {
+      homePageRef.openActiveSession();
+    }
     activeTab = 'home';
   }
 
