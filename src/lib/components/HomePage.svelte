@@ -565,7 +565,21 @@
   );
 
   function handlePrintStatement() {
+    if (!selectedClient) return;
+    const originalTitle = document.title;
+    const dateRangeStr = statementStartDate && statementEndDate
+      ? `(${statementStartDate} to ${statementEndDate})`
+      : '';
+    document.title = `${selectedClient.name} ${dateRangeStr}`.trim();
+
+    const cleanup = () => {
+      document.title = originalTitle;
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup);
     window.print();
+    setTimeout(cleanup, 2000);
   }
 </script>
 
@@ -651,7 +665,7 @@
                         {#if client.phone || client.address}
                           <div class="text-xs text-slate-500 dark:text-neutral-400 mt-0.5 flex items-center gap-3">
                             {#if client.phone}<span>📞 {client.phone}</span>{/if}
-                            {#if client.address}<span>📍 {client.address}</span>{/if}
+                            {#if client.address}<span>{client.address}</span>{/if}
                           </div>
                         {/if}
                       </div>
@@ -710,7 +724,7 @@
               </div>
               {#if selectedClient.address}
                 <div class="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">
-                  📍 {selectedClient.address}
+                  {selectedClient.address}
                 </div>
               {/if}
             </div>
