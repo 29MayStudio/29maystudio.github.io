@@ -51,6 +51,15 @@
   const getTodayString = () => new Date().toISOString().split('T')[0];
   let todayDate = $state(getTodayString());
 
+  function formatDateDMY(dateStr: string): string {
+    if (!dateStr) return '-';
+    const parts = dateStr.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return dateStr;
+  }
+
   // Scroll Container References for Tally Grids
   let rxContainer = $state<HTMLElement | null>(null);
   let dxContainer = $state<HTMLElement | null>(null);
@@ -104,14 +113,12 @@
   // Multi-item received form state
   interface RxDraftItem {
     yarn_count: string;
-    lot: string;
     bags: number | undefined;
     weight_kg: number | undefined;
   }
 
   interface DxDraftItem {
     yarn_count: string;
-    lot: string;
     dia: string;
     rolls: number | undefined;
     weight_kg: number | undefined;
@@ -120,7 +127,7 @@
   let rxDate = $state(getTodayString());
   let rxChNo = $state('');
   let rxItems = $state<RxDraftItem[]>([
-    { yarn_count: '', lot: '', bags: undefined, weight_kg: undefined }
+    { yarn_count: '', bags: undefined, weight_kg: undefined }
   ]);
 
   let rxTotalBags = $derived(
@@ -133,6 +140,42 @@
         .toFixed(2)
     )
   );
+
+  function getDeliveredBalance(record: DeliveredRecord): number {
+    const rxSum = todayReceivedList.reduce((sum, rx) => {
+      if (rx.date <= record.date) {
+        return sum + Number(rx.total_weight_kg || rx.weight_kg || 0);
+      }
+      return sum;
+    }, 0);
+
+    const dxSum = todayDeliveredList.reduce((sum, dx) => {
+      if (dx.date < record.date || (dx.date === record.date && dx.timestamp <= record.timestamp)) {
+        return sum + Number(dx.total_weight_kg || dx.weight_kg || 0);
+      }
+      return sum;
+    }, 0);
+
+    return Number((rxSum - dxSum).toFixed(2));
+  }
+
+  // Right Bar Tooltip Hover state
+  let rightBarHovered = $state<string | null>(null);
+
+  // Add Entry Modal state
+  let isAddModalOpen = $state(false);
+  let addEntryMode = $state<'received' | 'delivered'>('received');
+
+  function openAddModal() {
+    addEntryMode = 'received';
+    rxDate = getTodayString();
+    rxChNo = '';
+    rxItems = [{ yarn_count: '', bags: undefined, weight_kg: undefined }];
+    dxDate = getTodayString();
+    dxChNo = '';
+    dxItems = [{ yarn_count: '', dia: dias[0]?.value || '', rolls: undefined, weight_kg: undefined }];
+    isAddModalOpen = true;
+  }
 
   // Active Popover state for Del column options
   let activePopover = $state<{ type: 'received' | 'delivered'; id: number } | null>(null);
@@ -176,7 +219,7 @@
     id?: number;
     date: string;
     ch_no: string;
-    items: { yarn_count: string; lot: string; bags: number | undefined; weight_kg: number | undefined }[];
+    items: { yarn_count: string; bags: number | undefined; weight_kg: number | undefined }[];
   }>({
     open: false,
     date: '',
@@ -187,8 +230,8 @@
   function openEditReceivedModal(record: ReceivedRecord) {
     if (!record.id) return;
     const items = record.items && record.items.length > 0
-      ? record.items.map(i => ({ yarn_count: i.yarn_count, lot: i.lot || '', bags: i.bags, weight_kg: i.weight_kg }))
-      : [{ yarn_count: record.yarn_count || '', lot: record.lot || '', bags: record.bags || 0, weight_kg: record.weight_kg || 0 }];
+      ? record.items.map(i => ({ yarn_count: i.yarn_count, bags: i.bags, weight_kg: i.weight_kg }))
+      : [{ yarn_count: record.yarn_count || '', bags: record.bags || 0, weight_kg: record.weight_kg || 0 }];
 
     editingReceived = {
       open: true,
@@ -220,13 +263,11 @@
       date: editingReceived.date,
       ch_no: editingReceived.ch_no.trim() || '-',
       yarn_count: first.yarn_count.trim() || '-',
-      lot: first.lot.trim() || undefined,
       bags: totalBagsSum,
       weight_kg: totalWeightSum,
       total_weight_kg: totalWeightSum,
       items: validItems.map(i => ({
         yarn_count: i.yarn_count.trim() || '-',
-        lot: i.lot.trim() || undefined,
         bags: Number(i.bags) || 0,
         weight_kg: Number(i.weight_kg)
       })),
@@ -244,7 +285,7 @@
     id?: number;
     date: string;
     ch_no: string;
-    items: { yarn_count: string; lot: string; dia: string; rolls: number | undefined; weight_kg: number | undefined }[];
+    items: { yarn_count: string; dia: string; rolls: number | undefined; weight_kg: number | undefined }[];
   }>({
     open: false,
     date: '',
@@ -255,8 +296,8 @@
   function openEditDeliveredModal(record: DeliveredRecord) {
     if (!record.id) return;
     const items = record.items && record.items.length > 0
-      ? record.items.map(i => ({ yarn_count: i.yarn_count, lot: i.lot || '', dia: i.dia || (dias[0]?.value ?? '30"'), rolls: i.rolls, weight_kg: i.weight_kg }))
-      : [{ yarn_count: record.yarn_count || '', lot: record.lot || '', dia: record.dia || (dias[0]?.value ?? '30"'), rolls: record.rolls || 0, weight_kg: record.weight_kg || 0 }];
+      ? record.items.map(i => ({ yarn_count: i.yarn_count, dia: i.dia || (dias[0]?.value ?? '30"'), rolls: i.rolls, weight_kg: i.weight_kg }))
+      : [{ yarn_count: record.yarn_count || '', dia: record.dia || (dias[0]?.value ?? '30"'), rolls: record.rolls || 0, weight_kg: record.weight_kg || 0 }];
 
     editingDelivered = {
       open: true,
@@ -288,14 +329,12 @@
       date: editingDelivered.date,
       ch_no: editingDelivered.ch_no.trim() || '-',
       yarn_count: first.yarn_count.trim() || '-',
-      lot: first.lot.trim() || undefined,
       dia: first.dia.trim() || (dias[0]?.value ?? '30"'),
       rolls: totalRollsSum,
       weight_kg: totalWeightSum,
       total_weight_kg: totalWeightSum,
       items: validItems.map(i => ({
         yarn_count: i.yarn_count.trim() || '-',
-        lot: i.lot.trim() || undefined,
         dia: i.dia.trim() || (dias[0]?.value ?? '30"'),
         rolls: Number(i.rolls) || 0,
         weight_kg: Number(i.weight_kg)
@@ -312,7 +351,7 @@
   let dxDate = $state(getTodayString());
   let dxChNo = $state('');
   let dxItems = $state<DxDraftItem[]>([
-    { yarn_count: '', lot: '', dia: '', rolls: undefined, weight_kg: undefined }
+    { yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined }
   ]);
 
   let dxTotalRolls = $derived(
@@ -402,7 +441,7 @@
   }
 
   function addRxDraftRow() {
-    rxItems.push({ yarn_count: '', lot: '', bags: undefined, weight_kg: undefined });
+    rxItems.push({ yarn_count: '', bags: undefined, weight_kg: undefined });
   }
 
   function removeRxDraftRow(index: number) {
@@ -412,7 +451,7 @@
   }
 
   function addDxDraftRow() {
-    dxItems.push({ yarn_count: '', lot: '', dia: dias[0]?.value || '', rolls: undefined, weight_kg: undefined });
+    dxItems.push({ yarn_count: '', dia: dias[0]?.value || '', rolls: undefined, weight_kg: undefined });
   }
 
   function removeDxDraftRow(index: number) {
@@ -437,7 +476,6 @@
     const first = validItems[0];
     const itemsArray = validItems.map((i) => ({
       yarn_count: i.yarn_count.trim() || '-',
-      lot: i.lot.trim() || undefined,
       bags: i.bags ? Number(i.bags) : 0,
       weight_kg: Number(i.weight_kg)
     }));
@@ -448,7 +486,6 @@
       date: rxDate || getTodayString(),
       ch_no: rxChNo.trim() || '-',
       yarn_count: first.yarn_count.trim() || '-',
-      lot: first.lot.trim() || undefined,
       bags: totalBagsSum,
       weight_kg: totalWeightSum,
       total_weight_kg: totalWeightSum,
@@ -458,7 +495,8 @@
 
     // Reset inputs
     rxChNo = '';
-    rxItems = [{ yarn_count: '', lot: '', bags: undefined, weight_kg: undefined }];
+    rxItems = [{ yarn_count: '', bags: undefined, weight_kg: undefined }];
+    isAddModalOpen = false;
 
     await loadClientRecords(selectedClient.id);
     window.dispatchEvent(new CustomEvent('db-updated'));
@@ -479,7 +517,6 @@
     const first = validItems[0];
     const itemsArray = validItems.map((i) => ({
       yarn_count: i.yarn_count.trim() || '-',
-      lot: i.lot.trim() || undefined,
       dia: i.dia.trim() || (dias[0]?.value ?? '30"'),
       rolls: i.rolls ? Number(i.rolls) : 0,
       weight_kg: Number(i.weight_kg)
@@ -491,7 +528,6 @@
       date: dxDate || getTodayString(),
       ch_no: dxChNo.trim() || '-',
       yarn_count: first.yarn_count.trim() || '-',
-      lot: first.lot.trim() || undefined,
       dia: first.dia.trim() || (dias[0]?.value ?? '30"'),
       rolls: totalRollsSum,
       weight_kg: totalWeightSum,
@@ -502,7 +538,8 @@
 
     // Reset inputs
     dxChNo = '';
-    dxItems = [{ yarn_count: '', lot: '', dia: dias[0]?.value || '', rolls: undefined, weight_kg: undefined }];
+    dxItems = [{ yarn_count: '', dia: dias[0]?.value || '', rolls: undefined, weight_kg: undefined }];
+    isAddModalOpen = false;
 
     await loadClientRecords(selectedClient.id);
     window.dispatchEvent(new CustomEvent('db-updated'));
@@ -703,74 +740,68 @@
 
   {:else}
     <!-- SELECTED CLIENT TOP SCREEN WITH TALLY / EXCEL GRID -->
-    <div in:fade={{ duration: 250 }} out:fade={{ duration: 150 }} class="h-full flex flex-col overflow-hidden bg-white dark:bg-black">
-      <!-- Top Sticky Bar with Search & Selected Client Big Headline -->
-      <header class="bg-white dark:bg-neutral-900 border-b border-slate-200 dark:border-neutral-800 px-6 py-3 shrink-0 shadow-sm transition-all">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <!-- Client Name Title & Statement Button -->
-          <div class="flex items-center gap-3">
-            <div>
-              <div class="flex items-center gap-3">
-                <h1 class="text-2xl md:text-3xl font-normal text-slate-900 dark:text-white">
+    <div in:fade={{ duration: 250 }} out:fade={{ duration: 150 }} class="h-full flex flex-row overflow-hidden bg-white dark:bg-black">
+      <!-- Main Content Container (Header + Dual Tally Grids) -->
+      <div class="flex-1 flex flex-col h-full overflow-hidden">
+        <!-- Compact Top Header Bar -->
+        <header class="bg-white dark:bg-neutral-900 border-b border-slate-200 dark:border-neutral-800 px-4 py-2 shrink-0 shadow-xs transition-all">
+          <div class="flex items-center justify-between gap-3">
+            <!-- Client Name Title & Address -->
+            <div class="flex items-center gap-3">
+              <div>
+                <h1 class="text-xl font-normal text-slate-900 dark:text-white leading-tight">
                   {selectedClient.name}
                 </h1>
-                <button
-                  type="button"
-                  onclick={openStatementModal}
-                  class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <FileText class="w-4 h-4" /> Statement
-                </button>
+                {#if selectedClient.address}
+                  <div class="text-[11px] text-slate-500 dark:text-neutral-400">
+                    {selectedClient.address}
+                  </div>
+                {/if}
               </div>
-              {#if selectedClient.address}
-                <div class="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">
-                  {selectedClient.address}
-                </div>
-              {/if}
-            </div>
-          </div>
-
-          <!-- Top Search & Client Switcher Actions -->
-          <div class="flex items-center gap-3">
-            <div class="relative w-64 md:w-80">
-              <input
-                type="text"
-                bind:value={searchQuery}
-                placeholder="Search client..."
-                class="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                onfocus={() => (isSearchFocused = true)}
-              />
-              <Search class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-
-              {#if searchQuery.trim().length > 0 && autocompleteSuggestions.length > 0}
-                <div class="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
-                  {#each autocompleteSuggestions as client}
-                    <button
-                      type="button"
-                      onclick={() => selectClient(client)}
-                      class="w-full text-left px-3 py-2 text-xs hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-900 dark:text-white border-b border-slate-100 dark:border-neutral-800/50 cursor-pointer"
-                    >
-                      <div>{client.name}</div>
-                    </button>
-                  {/each}
-                </div>
-              {/if}
             </div>
 
-            <button
-              type="button"
-              onclick={clearSelectedClient}
-              class="px-3 py-2 rounded-xl bg-slate-200 dark:bg-neutral-800 hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
-              title="Change client"
-            >
-              <X class="w-4 h-4" /> Change Client
-            </button>
-          </div>
-        </div>
-      </header>
+            <!-- Top Search & Client Switcher Actions -->
+            <div class="flex items-center gap-2">
+              <div class="relative w-48 md:w-60">
+                <input
+                  type="text"
+                  bind:value={searchQuery}
+                  placeholder="Search client..."
+                  class="w-full pl-8 pr-7 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  onfocus={() => (isSearchFocused = true)}
+                />
+                <Search class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
 
-      <!-- Main Full-Page Dual View (Received | Thick Dividing Line | Delivered) -->
-      <main class="flex-1 flex flex-col md:flex-row overflow-hidden divide-y-4 md:divide-y-0 md:divide-x-4 divide-slate-300 dark:divide-neutral-700">
+                {#if searchQuery.trim().length > 0 && autocompleteSuggestions.length > 0}
+                  <div class="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
+                    {#each autocompleteSuggestions as client}
+                      <button
+                        type="button"
+                        onclick={() => selectClient(client)}
+                        class="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-900 dark:text-white border-b border-slate-100 dark:border-neutral-800/50 cursor-pointer"
+                      >
+                        <div>{client.name}</div>
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+
+              <!-- Change Client Button -->
+              <button
+                type="button"
+                onclick={clearSelectedClient}
+                class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-200 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                title="Change client"
+              >
+                <X class="w-3.5 h-3.5" /> Change Client
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- Main Full-Page Dual View (Received | Thick Dividing Line | Delivered) -->
+        <main class="flex-1 flex flex-col md:flex-row overflow-hidden divide-y-4 md:divide-y-0 md:divide-x-4 divide-slate-300 dark:divide-neutral-700">
 
         <!-- ================= LEFT SIDE: RECEIVED ================= -->
         <section class="flex-1 flex flex-col h-full overflow-hidden bg-slate-50/50 dark:bg-neutral-950/50">
@@ -789,7 +820,6 @@
                   <th class="px-2.5 py-2 w-24">Date</th>
                   <th class="px-2.5 py-2">CH No.</th>
                   <th class="px-2.5 py-2">Yarn Count</th>
-                  <th class="px-2.5 py-2">Lot</th>
                   <th class="px-2.5 py-2 w-16 text-center">Bags</th>
                   <th class="px-2.5 py-2 w-24 text-right">Weight (Kg)</th>
                   <th class="px-2.5 py-2 w-10 text-center">?</th>
@@ -799,7 +829,7 @@
               <tbody class="divide-y divide-slate-200 dark:divide-neutral-800 bg-white dark:bg-neutral-900">
                 {#if todayReceivedList.length === 0}
                   <tr>
-                    <td colspan="7" class="p-8 text-center text-slate-400 text-sm italic">
+                    <td colspan="6" class="p-8 text-center text-slate-400 text-sm italic">
                       No received tally entries found for this client.
                     </td>
                   </tr>
@@ -813,7 +843,6 @@
                             <td rowspan={record.items.length} class="p-2 font-semibold text-xs align-top bg-slate-50/30 dark:bg-neutral-900/30">{record.ch_no}</td>
                           {/if}
                           <td class="p-2">{item.yarn_count}</td>
-                          <td class="p-2 text-slate-500">{item.lot || '-'}</td>
                           <td class="p-2 text-center font-mono">{item.bags}</td>
                           <td class="p-2 text-right font-mono font-bold text-blue-700 dark:text-blue-400">{item.weight_kg}</td>
                           {#if itemIdx === 0}
@@ -867,7 +896,7 @@
                       <!-- Summary Row for Multi-Item Received Challan -->
                       {#if record.items.length > 1}
                         <tr class="bg-blue-50/60 dark:bg-blue-950/40 font-bold border-b-2 border-blue-200 dark:border-blue-900/50">
-                          <td colspan="4" class="p-1.5 text-right text-[11px] text-blue-800 dark:text-blue-300">
+                          <td colspan="3" class="p-1.5 text-right text-[11px] text-blue-800 dark:text-blue-300">
                             Challan Total:
                           </td>
                           <td class="p-1.5 text-center font-mono text-blue-800 dark:text-blue-300">{record.bags}</td>
@@ -881,7 +910,6 @@
                         <td class="p-2 font-mono text-xs">{record.date}</td>
                         <td class="p-2 font-semibold text-xs">{record.ch_no}</td>
                         <td class="p-2">{record.yarn_count}</td>
-                        <td class="p-2 text-slate-500">{record.lot || '-'}</td>
                         <td class="p-2 text-center font-mono">{record.bags}</td>
                         <td class="p-2 text-right font-mono font-bold text-blue-700 dark:text-blue-400">{record.weight_kg}</td>
                         <td class="p-2 text-center">
@@ -936,104 +964,6 @@
             </table>
           </div>
 
-          <!-- BOTTOM FORM: ADD RECEIVED ENTRY -->
-          <div class="bg-white dark:bg-neutral-900 border-t-2 border-blue-600 p-3 shrink-0 shadow-lg space-y-2">
-            <div class="flex items-center justify-between text-xs font-semibold text-blue-700 dark:text-blue-400">
-              <span>+ New Received Entry Form</span>
-              <span>Total: {rxTotalBags} Bags | {rxTotalWeight} Kg</span>
-            </div>
-
-            <!-- Header Row: Date & CH No -->
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label for="rx-date" class="block text-[10px] font-bold text-slate-500">Date</label>
-                <input
-                  id="rx-date"
-                  type="date"
-                  bind:value={rxDate}
-                  class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-2 py-1 text-xs"
-                />
-              </div>
-              <div>
-                <label for="rx-ch-no" class="block text-[10px] font-bold text-slate-500">CH No.</label>
-                <input
-                  id="rx-ch-no"
-                  type="text"
-                  bind:value={rxChNo}
-                  placeholder="e.g. 1042"
-                  class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-2 py-1 text-xs"
-                />
-              </div>
-            </div>
-
-            <!-- Dynamic Yarn Item Draft Inputs -->
-            <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-              {#each rxItems as draftItem, index}
-                <div class="flex items-center gap-1.5 bg-blue-50/50 dark:bg-blue-950/20 p-1.5 rounded-lg border border-blue-200/60 dark:border-blue-900/40">
-                  <select
-                    bind:value={draftItem.yarn_count}
-                    class="flex-1 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-1.5 py-1 text-xs"
-                  >
-                    <option value="">Yarn Count</option>
-                    {#each fabricTypes as fabric}
-                      <option value={fabric.name}>{fabric.name}</option>
-                    {/each}
-                  </select>
-
-                  <input
-                    type="text"
-                    bind:value={draftItem.lot}
-                    placeholder="Lot"
-                    class="w-16 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-1.5 py-1 text-xs"
-                  />
-
-                  <input
-                    type="number"
-                    bind:value={draftItem.bags}
-                    placeholder="Bags"
-                    class="w-16 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-1.5 py-1 text-xs text-center"
-                  />
-
-                  <input
-                    type="number"
-                    step="0.01"
-                    bind:value={draftItem.weight_kg}
-                    placeholder="Kg"
-                    class="w-24 bg-white dark:bg-neutral-800 border-2 border-blue-500 rounded px-1.5 py-1 text-xs font-bold text-right"
-                  />
-
-                  {#if rxItems.length > 1}
-                    <button
-                      type="button"
-                      onclick={() => removeRxDraftRow(index)}
-                      class="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
-                    >
-                      <X class="w-3.5 h-3.5" />
-                    </button>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-
-            <!-- Form Actions -->
-            <div class="flex items-center justify-between pt-1">
-              <button
-                type="button"
-                onclick={addRxDraftRow}
-                class="px-2.5 py-1 bg-slate-100 dark:bg-neutral-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                <Plus class="w-3.5 h-3.5" /> Add Yarn Item
-              </button>
-
-              <button
-                type="button"
-                onclick={addReceivedRow}
-                class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus class="w-4 h-4" /> Save Received Entry
-              </button>
-            </div>
-          </div>
         </section>
 
 
@@ -1054,10 +984,10 @@
                   <th class="px-2.5 py-2 w-24">Date</th>
                   <th class="px-2.5 py-2">CH No.</th>
                   <th class="px-2.5 py-2">Yarn Count</th>
-                  <th class="px-2.5 py-2">Lot</th>
                   <th class="px-2.5 py-2 w-14">Dia</th>
                   <th class="px-2.5 py-2 w-16 text-center">Rolls</th>
                   <th class="px-2.5 py-2 w-24 text-right">Weight (Kg)</th>
+                  <th class="px-2.5 py-2 w-24 text-right">Balance</th>
                   <th class="px-2.5 py-2 w-10 text-center">?</th>
                 </tr>
               </thead>
@@ -1079,11 +1009,13 @@
                             <td rowspan={record.items.length} class="p-2 font-semibold text-xs align-top bg-slate-50/30 dark:bg-neutral-900/30">{record.ch_no}</td>
                           {/if}
                           <td class="p-2">{item.yarn_count}</td>
-                          <td class="p-2 text-slate-500">{item.lot || '-'}</td>
                           <td class="p-2 font-semibold text-slate-700 dark:text-neutral-300">{item.dia}</td>
                           <td class="p-2 text-center font-mono">{item.rolls}</td>
                           <td class="p-2 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">{item.weight_kg}</td>
                           {#if itemIdx === 0}
+                            <td rowspan={record.items.length} class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400 align-top bg-slate-50/30 dark:bg-neutral-900/30">
+                              {getDeliveredBalance(record)} kg
+                            </td>
                             <td rowspan={record.items.length} class="p-2 text-center align-middle bg-slate-50/30 dark:bg-neutral-900/30">
                               <div class="relative inline-block text-left" role="presentation" onmouseleave={() => (activePopover = null)}>
                                 <button
@@ -1134,11 +1066,12 @@
                       <!-- Summary Row for Multi-Item Delivered Challan -->
                       {#if record.items.length > 1}
                         <tr class="bg-emerald-50/60 dark:bg-emerald-950/40 font-bold border-b-2 border-emerald-200 dark:border-emerald-900/50">
-                          <td colspan="5" class="p-1.5 text-right text-[11px] text-emerald-800 dark:text-emerald-300">
+                          <td colspan="4" class="p-1.5 text-right text-[11px] text-emerald-800 dark:text-emerald-300">
                             Challan Total:
                           </td>
                           <td class="p-1.5 text-center font-mono text-emerald-800 dark:text-emerald-300">{record.rolls}</td>
                           <td class="p-1.5 text-right font-mono text-emerald-800 dark:text-emerald-300">{record.total_weight_kg} kg</td>
+                          <td></td>
                           <td></td>
                         </tr>
                       {/if}
@@ -1148,10 +1081,10 @@
                         <td class="p-2 font-mono text-xs">{record.date}</td>
                         <td class="p-2 font-semibold text-xs">{record.ch_no}</td>
                         <td class="p-2">{record.yarn_count}</td>
-                        <td class="p-2 text-slate-500">{record.lot || '-'}</td>
                         <td class="p-2 font-semibold">{record.dia}</td>
                         <td class="p-2 text-center font-mono">{record.rolls}</td>
                         <td class="p-2 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">{record.weight_kg}</td>
+                        <td class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400">{getDeliveredBalance(record)} kg</td>
                         <td class="p-2 text-center">
                           <div class="relative inline-block text-left" role="presentation" onmouseleave={() => (activePopover = null)}>
                             <button
@@ -1204,119 +1137,297 @@
             </table>
           </div>
 
-          <!-- BOTTOM FORM: ADD DELIVERED ENTRY -->
-          <div class="bg-white dark:bg-neutral-900 border-t-2 border-emerald-600 p-3 shrink-0 shadow-lg space-y-2">
-            <div class="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-              <span>+ New Delivered Entry Form</span>
-              <span>Total: {dxTotalRolls} Rolls | {dxTotalWeight} Kg</span>
-            </div>
-
-            <!-- Header Row: Date & CH No -->
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label for="dx-date" class="block text-[10px] font-bold text-slate-500">Date</label>
-                <input
-                  id="dx-date"
-                  type="date"
-                  bind:value={dxDate}
-                  class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-2 py-1 text-xs"
-                />
-              </div>
-              <div>
-                <label for="dx-ch-no" class="block text-[10px] font-bold text-slate-500">CH No.</label>
-                <input
-                  id="dx-ch-no"
-                  type="text"
-                  bind:value={dxChNo}
-                  placeholder="e.g. 5021"
-                  class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-2 py-1 text-xs"
-                />
-              </div>
-            </div>
-
-            <!-- Dynamic Yarn Item Draft Inputs -->
-            <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-              {#each dxItems as draftItem, index}
-                <div class="flex items-center gap-1.5 bg-emerald-50/50 dark:bg-emerald-950/20 p-1.5 rounded-lg border border-emerald-200/60 dark:border-emerald-900/40">
-                  <select
-                    bind:value={draftItem.yarn_count}
-                    class="flex-1 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-1.5 py-1 text-xs"
-                  >
-                    <option value="">Yarn Count</option>
-                    {#each fabricTypes as fabric}
-                      <option value={fabric.name}>{fabric.name}</option>
-                    {/each}
-                  </select>
-
-                  <input
-                    type="text"
-                    bind:value={draftItem.lot}
-                    placeholder="Lot"
-                    class="w-14 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-1.5 py-1 text-xs"
-                  />
-
-                  <select
-                    bind:value={draftItem.dia}
-                    class="w-16 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-1 py-1 text-xs font-semibold"
-                  >
-                    {#each dias as dia}
-                      <option value={dia.value}>{dia.value}</option>
-                    {/each}
-                  </select>
-
-                  <input
-                    type="number"
-                    bind:value={draftItem.rolls}
-                    placeholder="Rolls"
-                    class="w-14 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded px-1.5 py-1 text-xs text-center"
-                  />
-
-                  <input
-                    type="number"
-                    step="0.01"
-                    bind:value={draftItem.weight_kg}
-                    placeholder="Kg"
-                    class="w-20 bg-white dark:bg-neutral-800 border-2 border-emerald-500 rounded px-1.5 py-1 text-xs font-bold text-right"
-                  />
-
-                  {#if dxItems.length > 1}
-                    <button
-                      type="button"
-                      onclick={() => removeDxDraftRow(index)}
-                      class="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
-                    >
-                      <X class="w-3.5 h-3.5" />
-                    </button>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-
-            <!-- Form Actions -->
-            <div class="flex items-center justify-between pt-1">
-              <button
-                type="button"
-                onclick={addDxDraftRow}
-                class="px-2.5 py-1 bg-slate-100 dark:bg-neutral-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                <Plus class="w-3.5 h-3.5" /> Add Yarn Item
-              </button>
-
-              <button
-                type="button"
-                onclick={addDeliveredRow}
-                class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus class="w-4 h-4" /> Save Delivered Entry
-              </button>
-            </div>
-          </div>
         </section>
 
       </main>
+      </div>
+
+      <!-- Right Action Sidebar (Icon-Only Buttons Bar, matching Left Nav Sidebar) -->
+      <aside class="w-10 md:w-11 h-full bg-white dark:bg-black border-l border-slate-200 dark:border-neutral-800 flex flex-col items-center justify-center py-3 gap-2.5 shrink-0 z-20 print:hidden">
+        <!-- + Add Data Button (Plus icon) -->
+        <div class="relative flex items-center justify-center">
+          <button
+            type="button"
+            onclick={openAddModal}
+            onmouseenter={() => (rightBarHovered = 'add')}
+            onmouseleave={() => (rightBarHovered = null)}
+            class="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs"
+          >
+            <Plus class="w-4 h-4 shrink-0" />
+          </button>
+
+          {#if rightBarHovered === 'add'}
+            <div class="absolute right-11 top-1 z-50 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+              Add Data (+ Entry)
+            </div>
+          {/if}
+        </div>
+
+        <!-- Statement / Print Button (Printer icon) -->
+        <div class="relative flex items-center justify-center">
+          <button
+            type="button"
+            onclick={openStatementModal}
+            onmouseenter={() => (rightBarHovered = 'statement')}
+            onmouseleave={() => (rightBarHovered = null)}
+            class="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs"
+          >
+            <Printer class="w-4 h-4 shrink-0" />
+          </button>
+
+          {#if rightBarHovered === 'statement'}
+            <div class="absolute right-11 top-1 z-50 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+              Client Statement / Print
+            </div>
+          {/if}
+        </div>
+      </aside>
     </div>
   {/if}
 </div>
+
+<!-- ADD ENTRY MODAL WITH MODE SWITCHER -->
+<Dialog open={isAddModalOpen} onclose={() => (isAddModalOpen = false)} title="Add Tally Entry" maxWidth="max-w-xl">
+  <div class="space-y-4 text-xs font-sans">
+    <!-- Mode Switcher Header -->
+    <div class="flex bg-slate-100 dark:bg-neutral-800 p-1 rounded-xl">
+      <button
+        type="button"
+        onclick={() => (addEntryMode = 'received')}
+        class={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+          addEntryMode === 'received'
+            ? 'bg-blue-600 text-white shadow-xs'
+            : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
+        }`}
+      >
+        <ArrowDownLeft class="w-4 h-4" /> Received Entry
+      </button>
+      <button
+        type="button"
+        onclick={() => (addEntryMode = 'delivered')}
+        class={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+          addEntryMode === 'delivered'
+            ? 'bg-emerald-600 text-white shadow-xs'
+            : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
+        }`}
+      >
+        <ArrowUpRight class="w-4 h-4" /> Delivered Entry
+      </button>
+    </div>
+
+    {#if addEntryMode === 'received'}
+      <!-- RECEIVED FORM -->
+      <div class="space-y-3">
+        <!-- Date & CH No -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="rx-popup-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Date *</label>
+            <input
+              id="rx-popup-date"
+              type="date"
+              bind:value={rxDate}
+              class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+            />
+          </div>
+          <div>
+            <label for="rx-popup-ch" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">CH No.</label>
+            <input
+              id="rx-popup-ch"
+              type="text"
+              bind:value={rxChNo}
+              placeholder="e.g. 1042"
+              class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+            />
+          </div>
+        </div>
+
+        <!-- Dynamic Yarn Items List -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between font-bold text-slate-700 dark:text-slate-300">
+            <span>Yarn Items</span>
+            <span class="text-[11px] text-blue-600 dark:text-blue-400 font-mono">Total: {rxTotalBags} Bags | {rxTotalWeight} Kg</span>
+          </div>
+
+          <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+            {#each rxItems as draftItem, index}
+              <div class="flex items-center gap-2 bg-blue-50/50 dark:bg-blue-950/20 p-2 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
+                <select
+                  bind:value={draftItem.yarn_count}
+                  class="flex-1 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs"
+                >
+                  <option value="">Select Yarn Count</option>
+                  {#each fabricTypes as fabric}
+                    <option value={fabric.name}>{fabric.name}</option>
+                  {/each}
+                </select>
+
+                <input
+                  type="number"
+                  bind:value={draftItem.bags}
+                  placeholder="Bags"
+                  class="w-20 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs text-center font-mono"
+                />
+
+                <input
+                  type="number"
+                  step="0.01"
+                  bind:value={draftItem.weight_kg}
+                  placeholder="Weight (Kg)"
+                  class="w-28 bg-white dark:bg-neutral-800 border-2 border-blue-500 rounded-lg p-1.5 text-xs font-bold font-mono text-right"
+                />
+
+                {#if rxItems.length > 1}
+                  <button
+                    type="button"
+                    onclick={() => removeRxDraftRow(index)}
+                    class="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
+                  >
+                    <X class="w-4 h-4" />
+                  </button>
+                {/if}
+              </div>
+            {/each}
+          </div>
+
+          <button
+            type="button"
+            onclick={addRxDraftRow}
+            class="px-3 py-1.5 bg-slate-100 dark:bg-neutral-800 hover:bg-slate-200 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            <Plus class="w-3.5 h-3.5" /> Add Another Item
+          </button>
+        </div>
+
+        <div class="pt-3 border-t border-slate-200 dark:border-neutral-800 flex justify-end gap-2">
+          <button
+            type="button"
+            onclick={() => (isAddModalOpen = false)}
+            class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-neutral-800 text-xs font-semibold hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onclick={addReceivedRow}
+            class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <Plus class="w-4 h-4" /> Save Received Entry
+          </button>
+        </div>
+      </div>
+
+    {:else}
+      <!-- DELIVERED FORM -->
+      <div class="space-y-3">
+        <!-- Date & CH No -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="dx-popup-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Date *</label>
+            <input
+              id="dx-popup-date"
+              type="date"
+              bind:value={dxDate}
+              class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+            />
+          </div>
+          <div>
+            <label for="dx-popup-ch" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">CH No.</label>
+            <input
+              id="dx-popup-ch"
+              type="text"
+              bind:value={dxChNo}
+              placeholder="e.g. 5021"
+              class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+            />
+          </div>
+        </div>
+
+        <!-- Dynamic Yarn Items List -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between font-bold text-slate-700 dark:text-slate-300">
+            <span>Yarn Items</span>
+            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono">Total: {dxTotalRolls} Rolls | {dxTotalWeight} Kg</span>
+          </div>
+
+          <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+            {#each dxItems as draftItem, index}
+              <div class="flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40">
+                <select
+                  bind:value={draftItem.yarn_count}
+                  class="flex-1 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs"
+                >
+                  <option value="">Select Yarn Count</option>
+                  {#each fabricTypes as fabric}
+                    <option value={fabric.name}>{fabric.name}</option>
+                  {/each}
+                </select>
+
+                <select
+                  bind:value={draftItem.dia}
+                  class="w-20 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs font-semibold"
+                >
+                  {#each dias as dia}
+                    <option value={dia.value}>{dia.value}</option>
+                  {/each}
+                </select>
+
+                <input
+                  type="number"
+                  bind:value={draftItem.rolls}
+                  placeholder="Rolls"
+                  class="w-16 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs text-center font-mono"
+                />
+
+                <input
+                  type="number"
+                  step="0.01"
+                  bind:value={draftItem.weight_kg}
+                  placeholder="Weight (Kg)"
+                  class="w-24 bg-white dark:bg-neutral-800 border-2 border-emerald-500 rounded-lg p-1.5 text-xs font-bold font-mono text-right"
+                />
+
+                {#if dxItems.length > 1}
+                  <button
+                    type="button"
+                    onclick={() => removeDxDraftRow(index)}
+                    class="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
+                  >
+                    <X class="w-4 h-4" />
+                  </button>
+                {/if}
+              </div>
+            {/each}
+          </div>
+
+          <button
+            type="button"
+            onclick={addDxDraftRow}
+            class="px-3 py-1.5 bg-slate-100 dark:bg-neutral-800 hover:bg-slate-200 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            <Plus class="w-3.5 h-3.5" /> Add Another Item
+          </button>
+        </div>
+
+        <div class="pt-3 border-t border-slate-200 dark:border-neutral-800 flex justify-end gap-2">
+          <button
+            type="button"
+            onclick={() => (isAddModalOpen = false)}
+            class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-neutral-800 text-xs font-semibold hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onclick={addDeliveredRow}
+            class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <Plus class="w-4 h-4" /> Save Delivered Entry
+          </button>
+        </div>
+      </div>
+    {/if}
+  </div>
+</Dialog>
 
 <!-- CUSTOM CONFIRMATION DIALOG -->
 <Dialog open={confirmModal.open} onclose={() => (confirmModal.open = false)} variant="warning" maxWidth="max-w-sm">
@@ -1375,7 +1486,7 @@
         <span>Yarn Items</span>
         <button
           type="button"
-          onclick={() => editingReceived.items.push({ yarn_count: '', lot: '', bags: undefined, weight_kg: undefined })}
+          onclick={() => editingReceived.items.push({ yarn_count: '', bags: undefined, weight_kg: undefined })}
           class="text-blue-600 dark:text-blue-400 font-semibold text-xs flex items-center gap-1 cursor-pointer"
         >
           <Plus class="w-3.5 h-3.5" /> Add Row
@@ -1393,13 +1504,6 @@
               <option value={fabric.name}>{fabric.name}</option>
             {/each}
           </select>
-
-          <input
-            type="text"
-            bind:value={item.lot}
-            placeholder="Lot"
-            class="w-16 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded p-1.5 text-xs"
-          />
 
           <input
             type="number"
@@ -1520,7 +1624,7 @@
           <th class="font-normal text-left p-0 pb-1">
             <div class="statement-print-header w-full">
               <div class="text-center border-b-2 border-black pb-1 mb-1 space-y-0.5">
-                <h1 class="text-xl font-bold tracking-tight text-black m-0 leading-tight uppercase">
+                <h1 class="text-3xl font-extrabold tracking-tight text-black m-0 leading-tight uppercase">
                   M/S A.B.S Knit Fabrics
                 </h1>
                 <div class="text-[11px] font-semibold text-neutral-800 tracking-wide uppercase">
@@ -1537,7 +1641,7 @@
                   <h2 class="text-base font-bold text-black m-0 leading-tight">{selectedClient.name}</h2>
                 </div>
                 <div class="text-right text-xs text-black font-mono">
-                  <span class="font-bold">Date Range:</span> {statementStartDate || 'Beginning'} &mdash; {statementEndDate || 'Present'}
+                  <span class="font-bold">Date Range:</span> {formatDateDMY(statementStartDate)} &mdash; {formatDateDMY(statementEndDate)}
                 </div>
               </div>
             </div>
@@ -1562,7 +1666,6 @@
               <th class="p-1 border-r border-neutral-300">Date</th>
               <th class="p-1 border-r border-neutral-300">CH No.</th>
               <th class="p-1 border-r border-neutral-300">Yarn Count</th>
-              <th class="p-1 border-r border-neutral-300">Lot</th>
               <th class="p-1 border-r border-neutral-300 text-center">Bags</th>
               <th class="p-1 text-right">Weight (Kg)</th>
             </tr>
@@ -1570,7 +1673,7 @@
           <tbody>
             {#if filteredStatementReceived.length === 0}
               <tr>
-                <td colspan="6" class="p-3 text-center italic text-neutral-500">No received entries in selected period.</td>
+                <td colspan="5" class="p-3 text-center italic text-neutral-500">No received entries in selected period.</td>
               </tr>
             {:else}
               {#each filteredStatementReceived as rec}
@@ -1578,21 +1681,19 @@
                   {#each rec.items as item, itemIdx}
                     <tr class="border-b border-neutral-200">
                       {#if itemIdx === 0}
-                        <td rowspan={rec.items.length} class="p-1 align-top font-mono border-r border-neutral-300">{rec.date}</td>
+                        <td rowspan={rec.items.length} class="p-1 align-top font-mono border-r border-neutral-300">{formatDateDMY(rec.date)}</td>
                         <td rowspan={rec.items.length} class="p-1 align-top font-semibold border-r border-neutral-300">{rec.ch_no}</td>
                       {/if}
                       <td class="p-1 border-r border-neutral-300">{item.yarn_count}</td>
-                      <td class="p-1 border-r border-neutral-300">{item.lot || '-'}</td>
                       <td class="p-1 border-r border-neutral-300 text-center font-mono">{item.bags}</td>
                       <td class="p-1 text-right font-mono font-bold">{item.weight_kg}</td>
                     </tr>
                   {/each}
                 {:else}
                   <tr class="border-b border-neutral-200">
-                    <td class="p-1 font-mono border-r border-neutral-300">{rec.date}</td>
+                    <td class="p-1 font-mono border-r border-neutral-300">{formatDateDMY(rec.date)}</td>
                     <td class="p-1 font-semibold border-r border-neutral-300">{rec.ch_no}</td>
                     <td class="p-1 border-r border-neutral-300">{rec.yarn_count}</td>
-                    <td class="p-1 border-r border-neutral-300">{rec.lot || '-'}</td>
                     <td class="p-1 border-r border-neutral-300 text-center font-mono">{rec.bags}</td>
                     <td class="p-1 text-right font-mono font-bold">{rec.weight_kg}</td>
                   </tr>
@@ -1602,7 +1703,7 @@
           </tbody>
           <tfoot>
             <tr class="border-t-2 border-black font-bold bg-neutral-100">
-              <td colspan="4" class="p-1 text-right border-r border-neutral-300">Total:</td>
+              <td colspan="3" class="p-1 text-right border-r border-neutral-300">Total:</td>
               <td class="p-1 text-center font-mono border-r border-neutral-300">{statementRxTotalBags}</td>
               <td class="p-1 text-right font-mono">{statementRxTotalWeight} Kg</td>
             </tr>
@@ -1621,7 +1722,6 @@
               <th class="p-1 border-r border-neutral-300">Date</th>
               <th class="p-1 border-r border-neutral-300">CH No.</th>
               <th class="p-1 border-r border-neutral-300">Yarn Count</th>
-              <th class="p-1 border-r border-neutral-300">Lot</th>
               <th class="p-1 border-r border-neutral-300">Dia</th>
               <th class="p-1 border-r border-neutral-300 text-center">Rolls</th>
               <th class="p-1 text-right">Weight (Kg)</th>
@@ -1630,7 +1730,7 @@
           <tbody>
             {#if filteredStatementDelivered.length === 0}
               <tr>
-                <td colspan="7" class="p-3 text-center italic text-neutral-500">No delivered entries in selected period.</td>
+                <td colspan="6" class="p-3 text-center italic text-neutral-500">No delivered entries in selected period.</td>
               </tr>
             {:else}
               {#each filteredStatementDelivered as del}
@@ -1638,11 +1738,10 @@
                   {#each del.items as item, itemIdx}
                     <tr class="border-b border-neutral-200">
                       {#if itemIdx === 0}
-                        <td rowspan={del.items.length} class="p-1 align-top font-mono border-r border-neutral-300">{del.date}</td>
+                        <td rowspan={del.items.length} class="p-1 align-top font-mono border-r border-neutral-300">{formatDateDMY(del.date)}</td>
                         <td rowspan={del.items.length} class="p-1 align-top font-semibold border-r border-neutral-300">{del.ch_no}</td>
                       {/if}
                       <td class="p-1 border-r border-neutral-300">{item.yarn_count}</td>
-                      <td class="p-1 border-r border-neutral-300">{item.lot || '-'}</td>
                       <td class="p-1 border-r border-neutral-300 font-semibold">{item.dia}</td>
                       <td class="p-1 border-r border-neutral-300 text-center font-mono">{item.rolls}</td>
                       <td class="p-1 text-right font-mono font-bold">{item.weight_kg}</td>
@@ -1650,10 +1749,9 @@
                   {/each}
                 {:else}
                   <tr class="border-b border-neutral-200">
-                    <td class="p-1 font-mono border-r border-neutral-300">{del.date}</td>
+                    <td class="p-1 font-mono border-r border-neutral-300">{formatDateDMY(del.date)}</td>
                     <td class="p-1 font-semibold border-r border-neutral-300">{del.ch_no}</td>
                     <td class="p-1 border-r border-neutral-300">{del.yarn_count}</td>
-                    <td class="p-1 border-r border-neutral-300">{del.lot || '-'}</td>
                     <td class="p-1 border-r border-neutral-300 font-semibold">{del.dia}</td>
                     <td class="p-1 border-r border-neutral-300 text-center font-mono">{del.rolls}</td>
                     <td class="p-1 text-right font-mono font-bold">{del.weight_kg}</td>
@@ -1664,7 +1762,7 @@
           </tbody>
           <tfoot>
             <tr class="border-t-2 border-black font-bold bg-neutral-100">
-              <td colspan="5" class="p-1 text-right border-r border-neutral-300">Total:</td>
+              <td colspan="4" class="p-1 text-right border-r border-neutral-300">Total:</td>
               <td class="p-1 text-center font-mono border-r border-neutral-300">{statementDxTotalRolls}</td>
               <td class="p-1 text-right font-mono">{statementDxTotalWeight} Kg</td>
             </tr>
@@ -1712,7 +1810,7 @@
         <span>Yarn Items</span>
         <button
           type="button"
-          onclick={() => editingDelivered.items.push({ yarn_count: '', lot: '', dia: dias[0]?.value || '30"', rolls: undefined, weight_kg: undefined })}
+          onclick={() => editingDelivered.items.push({ yarn_count: '', dia: dias[0]?.value || '30"', rolls: undefined, weight_kg: undefined })}
           class="text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1 cursor-pointer"
         >
           <Plus class="w-3.5 h-3.5" /> Add Row
@@ -1731,12 +1829,6 @@
             {/each}
           </select>
 
-          <input
-            type="text"
-            bind:value={item.lot}
-            placeholder="Lot"
-            class="w-14 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded p-1.5 text-xs"
-          />
 
           <select
             bind:value={item.dia}

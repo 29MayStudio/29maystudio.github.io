@@ -171,7 +171,6 @@
         ? rec.items
         : [{
             yarn_count: rec.yarn_count,
-            lot: rec.lot,
             dia: 'dia' in rec ? rec.dia : undefined,
             bags: 'bags' in rec ? rec.bags : undefined,
             rolls: 'rolls' in rec ? rec.rolls : undefined,
@@ -186,7 +185,6 @@
           'Type': itemIdx === 0 ? log.type : '',
           'CH No.': itemIdx === 0 ? (rec.ch_no || '-') : '',
           'Yarn Count': item.yarn_count || '-',
-          'Lot': item.lot || '-',
           'Dia': 'dia' in item && (item as any).dia ? (item as any).dia : ('dia' in rec ? rec.dia : '-'),
           'Bags': 'bags' in item && item.bags !== undefined ? item.bags : ('bags' in rec ? rec.bags : '-'),
           'Rolls': 'rolls' in item && item.rolls !== undefined ? item.rolls : ('rolls' in rec ? rec.rolls : '-'),
@@ -381,7 +379,7 @@
           <tbody class="divide-y divide-slate-100 dark:divide-neutral-800">
             {#each visibleAuditLogs as log}
               {@const rec = log.rawRecord}
-              {@const items = rec.items && rec.items.length > 0 ? rec.items : [{ yarn_count: rec.yarn_count, lot: rec.lot, dia: 'dia' in rec ? rec.dia : undefined, bags: 'bags' in rec ? rec.bags : undefined, rolls: 'rolls' in rec ? rec.rolls : undefined, weight_kg: rec.weight_kg }]}
+              {@const items = rec.items && rec.items.length > 0 ? rec.items : [{ yarn_count: rec.yarn_count, dia: 'dia' in rec ? rec.dia : undefined, bags: 'bags' in rec ? rec.bags : undefined, rolls: 'rolls' in rec ? rec.rolls : undefined, weight_kg: rec.weight_kg }]}
               <tr class="hover:bg-slate-50 dark:hover:bg-neutral-800/40 transition-colors">
                 <!-- Date & Time -->
                 <td class="p-3 align-top">
@@ -418,7 +416,6 @@
                     {#each items as item}
                       <div class="flex items-center gap-2 text-xs text-slate-700 dark:text-neutral-300">
                         <span class="font-semibold text-slate-900 dark:text-white">{item.yarn_count || '-'}</span>
-                        {#if item.lot}<span class="text-[10px] text-slate-400">Lot: {item.lot}</span>{/if}
                         {#if 'dia' in item && item.dia}<span class="text-[10px] bg-slate-100 dark:bg-neutral-800 px-1.5 rounded font-semibold text-emerald-600 dark:text-emerald-400">Dia: {item.dia}</span>{/if}
                         {#if 'bags' in item && item.bags !== undefined}<span class="text-[11px] font-mono text-blue-600 dark:text-blue-400">{item.bags} Bags</span>{/if}
                         {#if 'rolls' in item && item.rolls !== undefined}<span class="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">{item.rolls} Rolls</span>{/if}
@@ -517,7 +514,7 @@
 <Dialog open={selectedRecord !== null} onclose={closeDetailModal} title="Record Detail Log" maxWidth="max-w-lg">
   {#if selectedRecord}
     {@const rec = selectedRecord.rawRecord}
-    {@const items = rec.items && rec.items.length > 0 ? rec.items : [{ yarn_count: rec.yarn_count, lot: rec.lot, dia: 'dia' in rec ? rec.dia : undefined, bags: 'bags' in rec ? rec.bags : undefined, rolls: 'rolls' in rec ? rec.rolls : undefined, weight_kg: rec.weight_kg }]}
+    {@const items = rec.items && rec.items.length > 0 ? rec.items : [{ yarn_count: rec.yarn_count, dia: 'dia' in rec ? rec.dia : undefined, bags: 'bags' in rec ? rec.bags : undefined, rolls: 'rolls' in rec ? rec.rolls : undefined, weight_kg: rec.weight_kg }]}
     <div class="space-y-4 text-xs">
       <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-neutral-800">
         <div>
@@ -542,7 +539,6 @@
           <thead>
             <tr class="border-b border-slate-200 dark:border-neutral-700 text-slate-400 text-[10px] font-semibold">
               <th class="py-1">Yarn Count</th>
-              <th class="py-1">Lot</th>
               {#if selectedRecord.type === 'Delivered'}
                 <th class="py-1">Dia</th>
                 <th class="py-1 text-center">Rolls</th>
@@ -556,7 +552,6 @@
             {#each items as item}
               <tr>
                 <td class="py-1.5 font-bold text-slate-800 dark:text-slate-200">{item.yarn_count}</td>
-                <td class="py-1.5 text-slate-500">{item.lot || '-'}</td>
                 {#if selectedRecord.type === 'Delivered'}
                   <td class="py-1.5 font-semibold text-emerald-600 dark:text-emerald-400">{'dia' in item ? item.dia : '-'}</td>
                   <td class="py-1.5 text-center font-mono font-semibold">{'rolls' in item ? item.rolls : '-'}</td>
@@ -569,7 +564,7 @@
           </tbody>
           <tfoot>
             <tr class="border-t-2 border-slate-300 dark:border-neutral-700 font-bold text-slate-900 dark:text-white">
-              <td colspan={selectedRecord.type === 'Delivered' ? 3 : 2} class="pt-2 text-right">Challan Total:</td>
+              <td colspan={selectedRecord.type === 'Delivered' ? 2 : 1} class="pt-2 text-right">Challan Total:</td>
               <td class="pt-2 text-center font-mono">
                 {selectedRecord.type === 'Delivered' ? ('rolls' in rec ? rec.rolls : '-') : ('bags' in rec ? rec.bags : '-')}
               </td>
