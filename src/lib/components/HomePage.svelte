@@ -31,9 +31,10 @@
 
   interface Props {
     onNavigateToRecords?: () => void;
+    selectedClient?: Client | null;
   }
 
-  let { onNavigateToRecords }: Props = $props();
+  let { onNavigateToRecords, selectedClient = $bindable(null) }: Props = $props();
 
   // Data collections
   let allClients = $state<Client[]>([]);
@@ -41,7 +42,6 @@
   // Selection & Search State
   let searchQuery = $state('');
   let isSearchFocused = $state(false);
-  let selectedClient = $state<Client | null>(null);
   let highlightedIndex = $state<number>(0);
 
   // Today Date Helper
@@ -50,9 +50,9 @@
 
   function formatDateDMY(dateStr: string): string {
     if (!dateStr) return '-';
-    const parts = dateStr.split('-');
+    const parts = dateStr.split('T')[0].split('-');
     if (parts.length === 3 && parts[0].length === 4) {
-      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
     return dateStr;
   }
@@ -876,7 +876,7 @@
                       {#each record.items as item, itemIdx}
                         <tr class="hover:bg-blue-50/40 dark:hover:bg-neutral-800/60 divide-x divide-slate-100 dark:divide-neutral-800">
                           {#if itemIdx === 0}
-                            <td rowspan={record.items.length} class="p-2 font-mono text-xs align-top bg-slate-50/30 dark:bg-neutral-900/30">{record.date}</td>
+                            <td rowspan={record.items.length} class="p-2 font-mono text-xs align-top bg-slate-50/30 dark:bg-neutral-900/30">{formatDateDMY(record.date)}</td>
                             <td rowspan={record.items.length} class="p-2 font-semibold text-xs align-top bg-slate-50/30 dark:bg-neutral-900/30">{record.ch_no}</td>
                           {/if}
                           <td class="p-2">{item.yarn_count}</td>
@@ -944,7 +944,7 @@
                     {:else}
                       <!-- Legacy Record Fallback -->
                       <tr class="hover:bg-blue-50/40 dark:hover:bg-neutral-800/60 divide-x divide-slate-100 dark:divide-neutral-800">
-                        <td class="p-2 font-mono text-xs">{record.date}</td>
+                        <td class="p-2 font-mono text-xs">{formatDateDMY(record.date)}</td>
                         <td class="p-2 font-semibold text-xs">{record.ch_no}</td>
                         <td class="p-2">{record.yarn_count}</td>
                         <td class="p-2 text-center font-mono">{record.bags}</td>
@@ -999,8 +999,7 @@
                 {/if}
               </tbody>
             </table>
-            <div class="h-36 md:h-48 shrink-0"></div>
-            <div class="h-36 md:h-48 shrink-0"></div>
+            <div class="h-14 shrink-0"></div>
           </div>
 
         </section>
@@ -1044,7 +1043,7 @@
                       {#each record.items as item, itemIdx}
                         <tr class="hover:bg-emerald-50/40 dark:hover:bg-neutral-800/60 divide-x divide-slate-100 dark:divide-neutral-800">
                           {#if itemIdx === 0}
-                            <td rowspan={record.items.length} class="p-2 font-mono text-xs align-top bg-slate-50/30 dark:bg-neutral-900/30">{record.date}</td>
+                            <td rowspan={record.items.length} class="p-2 font-mono text-xs align-top bg-slate-50/30 dark:bg-neutral-900/30">{formatDateDMY(record.date)}</td>
                             <td rowspan={record.items.length} class="p-2 font-semibold text-xs align-top bg-slate-50/30 dark:bg-neutral-900/30">{record.ch_no}</td>
                           {/if}
                           <td class="p-2">{item.yarn_count}</td>
@@ -1117,7 +1116,7 @@
                     {:else}
                       <!-- Legacy Record Fallback -->
                       <tr class="hover:bg-emerald-50/40 dark:hover:bg-neutral-800/60 divide-x divide-slate-100 dark:divide-neutral-800">
-                        <td class="p-2 font-mono text-xs">{record.date}</td>
+                        <td class="p-2 font-mono text-xs">{formatDateDMY(record.date)}</td>
                         <td class="p-2 font-semibold text-xs">{record.ch_no}</td>
                         <td class="p-2">{record.yarn_count}</td>
                         <td class="p-2 font-semibold">{record.dia}</td>
@@ -1174,6 +1173,7 @@
                 {/if}
               </tbody>
             </table>
+            <div class="h-14 shrink-0"></div>
           </div>
 
         </section>
