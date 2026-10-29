@@ -5,8 +5,6 @@
     db,
     seedInitialData,
     type Client,
-    type FabricType,
-    type Dia,
     type ReceivedRecord,
     type DeliveredRecord
   } from '../db';
@@ -26,20 +24,19 @@
     CircleHelp,
     Pencil,
     FileText,
-    Printer
+    Printer,
+    Scale
   } from 'lucide-svelte';
   import Dialog from './ui/Dialog.svelte';
 
   interface Props {
-    onNavigateToAdd?: () => void;
+    onNavigateToRecords?: () => void;
   }
 
-  let { onNavigateToAdd }: Props = $props();
+  let { onNavigateToRecords }: Props = $props();
 
   // Data collections
   let allClients = $state<Client[]>([]);
-  let fabricTypes = $state<FabricType[]>([]);
-  let dias = $state<Dia[]>([]);
 
   // Selection & Search State
   let searchQuery = $state('');
@@ -173,7 +170,7 @@
     rxItems = [{ yarn_count: '', bags: undefined, weight_kg: undefined }];
     dxDate = getTodayString();
     dxChNo = '';
-    dxItems = [{ yarn_count: '', dia: dias[0]?.value || '', rolls: undefined, weight_kg: undefined }];
+    dxItems = [{ yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined }];
     isAddModalOpen = true;
   }
 
@@ -296,8 +293,8 @@
   function openEditDeliveredModal(record: DeliveredRecord) {
     if (!record.id) return;
     const items = record.items && record.items.length > 0
-      ? record.items.map(i => ({ yarn_count: i.yarn_count, dia: i.dia || (dias[0]?.value ?? '30"'), rolls: i.rolls, weight_kg: i.weight_kg }))
-      : [{ yarn_count: record.yarn_count || '', dia: record.dia || (dias[0]?.value ?? '30"'), rolls: record.rolls || 0, weight_kg: record.weight_kg || 0 }];
+      ? record.items.map(i => ({ yarn_count: i.yarn_count, dia: i.dia || '', rolls: i.rolls, weight_kg: i.weight_kg }))
+      : [{ yarn_count: record.yarn_count || '', dia: record.dia || '', rolls: record.rolls || 0, weight_kg: record.weight_kg || 0 }];
 
     editingDelivered = {
       open: true,
@@ -329,13 +326,13 @@
       date: editingDelivered.date,
       ch_no: editingDelivered.ch_no.trim() || '-',
       yarn_count: first.yarn_count.trim() || '-',
-      dia: first.dia.trim() || (dias[0]?.value ?? '30"'),
+      dia: first.dia.trim() || '-',
       rolls: totalRollsSum,
       weight_kg: totalWeightSum,
       total_weight_kg: totalWeightSum,
       items: validItems.map(i => ({
         yarn_count: i.yarn_count.trim() || '-',
-        dia: i.dia.trim() || (dias[0]?.value ?? '30"'),
+        dia: i.dia.trim() || '-',
         rolls: Number(i.rolls) || 0,
         weight_kg: Number(i.weight_kg)
       })),
@@ -382,14 +379,6 @@
 
   async function loadBaseData() {
     allClients = await db.clients.orderBy('name').toArray();
-    fabricTypes = await db.fabricTypes.orderBy('name').toArray();
-    dias = await db.dias.toArray();
-
-    if (dias.length > 0) {
-      if (dxItems.length > 0 && !dxItems[0].dia) {
-        dxItems[0].dia = dias[0].value;
-      }
-    }
   }
 
   async function selectClient(client: Client) {
@@ -401,7 +390,7 @@
     }
   }
 
-  function clearSelectedClient() {
+  export function clearSelectedClient() {
     selectedClient = null;
     searchQuery = '';
     todayReceivedList = [];
@@ -451,7 +440,7 @@
   }
 
   function addDxDraftRow() {
-    dxItems.push({ yarn_count: '', dia: dias[0]?.value || '', rolls: undefined, weight_kg: undefined });
+    dxItems.push({ yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined });
   }
 
   function removeDxDraftRow(index: number) {
@@ -517,7 +506,7 @@
     const first = validItems[0];
     const itemsArray = validItems.map((i) => ({
       yarn_count: i.yarn_count.trim() || '-',
-      dia: i.dia.trim() || (dias[0]?.value ?? '30"'),
+      dia: i.dia.trim() || '-',
       rolls: i.rolls ? Number(i.rolls) : 0,
       weight_kg: Number(i.weight_kg)
     }));
@@ -528,7 +517,7 @@
       date: dxDate || getTodayString(),
       ch_no: dxChNo.trim() || '-',
       yarn_count: first.yarn_count.trim() || '-',
-      dia: first.dia.trim() || (dias[0]?.value ?? '30"'),
+      dia: first.dia.trim() || '-',
       rolls: totalRollsSum,
       weight_kg: totalWeightSum,
       total_weight_kg: totalWeightSum,
@@ -538,7 +527,7 @@
 
     // Reset inputs
     dxChNo = '';
-    dxItems = [{ yarn_count: '', dia: dias[0]?.value || '', rolls: undefined, weight_kg: undefined }];
+    dxItems = [{ yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined }];
     isAddModalOpen = false;
 
     await loadClientRecords(selectedClient.id);
@@ -554,6 +543,54 @@
     if (!id) return;
     confirmDeleteRecord('delivered', id);
   }
+
+  // Weight Summary Modal state
+  let isWeightSummaryModalOpen = $state(false);
+  let summaryStartDate = $state('');
+  let summaryEndDate = $state('');
+
+  function openWeightSummaryModal() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    summaryStartDate = `${year}-${month}-01`;
+    summaryEndDate = getTodayString();
+    isWeightSummaryModalOpen = true;
+  }
+
+  let filteredSummaryReceived = $derived.by(() => {
+    if (!summaryStartDate || !summaryEndDate) return todayReceivedList;
+    return todayReceivedList.filter(
+      (r) => r.date >= summaryStartDate && r.date <= summaryEndDate
+    );
+  });
+
+  let filteredSummaryDelivered = $derived.by(() => {
+    if (!summaryStartDate || !summaryEndDate) return todayDeliveredList;
+    return todayDeliveredList.filter(
+      (d) => d.date >= summaryStartDate && d.date <= summaryEndDate
+    );
+  });
+
+  let summaryTotalReceivedKg = $derived(
+    Number(
+      filteredSummaryReceived
+        .reduce((acc, r) => acc + (r.total_weight_kg || r.weight_kg || 0), 0)
+        .toFixed(2)
+    )
+  );
+
+  let summaryTotalDeliveredKg = $derived(
+    Number(
+      filteredSummaryDelivered
+        .reduce((acc, d) => acc + (d.total_weight_kg || d.weight_kg || 0), 0)
+        .toFixed(2)
+    )
+  );
+
+  let summaryBalanceKg = $derived(
+    Number((summaryTotalReceivedKg - summaryTotalDeliveredKg).toFixed(2))
+  );
 
   // Statement Print Modal state
   let isStatementModalOpen = $state(false);
@@ -664,14 +701,14 @@
               {#if autocompleteSuggestions.length === 0}
                 <div class="p-6 text-center text-slate-500 dark:text-neutral-400">
                   <p class="font-semibold text-slate-700 dark:text-neutral-200">No client found matching "{searchQuery}"</p>
-                  <p class="text-xs mt-1 text-slate-400">Add new clients in the "Add Screen" tab.</p>
-                  {#if onNavigateToAdd}
+                  <p class="text-xs mt-1 text-slate-400">Add new clients in Client Management under All Records & Audit Logs.</p>
+                  {#if onNavigateToRecords}
                     <button
                       type="button"
-                      onclick={onNavigateToAdd}
+                      onclick={onNavigateToRecords}
                       class="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-medium text-xs rounded-xl hover:bg-emerald-500 transition-colors cursor-pointer"
                     >
-                      <Plus class="w-4 h-4" /> Go to Add Screen
+                      <Plus class="w-4 h-4" /> Go to Client Management
                     </button>
                   {/if}
                 </div>
@@ -723,14 +760,14 @@
 
         {#if allClients.length === 0}
           <div class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-700 dark:text-amber-400 text-xs flex items-center justify-between">
-            <span>No clients registered in database yet. Add clients to begin.</span>
-            {#if onNavigateToAdd}
+            <span>No clients registered in database yet. Add clients in Client Management.</span>
+            {#if onNavigateToRecords}
               <button
                 type="button"
-                onclick={onNavigateToAdd}
+                onclick={onNavigateToRecords}
                 class="font-bold underline hover:opacity-80 cursor-pointer ml-2"
               >
-                Add Client Now →
+                Manage Clients Now →
               </button>
             {/if}
           </div>
@@ -962,6 +999,8 @@
                 {/if}
               </tbody>
             </table>
+            <div class="h-36 md:h-48 shrink-0"></div>
+            <div class="h-36 md:h-48 shrink-0"></div>
           </div>
 
         </section>
@@ -1163,6 +1202,25 @@
           {/if}
         </div>
 
+        <!-- Weight Summary Button (Scale icon) -->
+        <div class="relative flex items-center justify-center">
+          <button
+            type="button"
+            onclick={openWeightSummaryModal}
+            onmouseenter={() => (rightBarHovered = 'summary')}
+            onmouseleave={() => (rightBarHovered = null)}
+            class="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-amber-600 hover:bg-amber-500 text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs"
+          >
+            <Scale class="w-4 h-4 shrink-0" />
+          </button>
+
+          {#if rightBarHovered === 'summary'}
+            <div class="absolute right-11 top-1 z-50 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+              Weight Summary
+            </div>
+          {/if}
+        </div>
+
         <!-- Statement / Print Button (Printer icon) -->
         <div class="relative flex items-center justify-center">
           <button
@@ -1251,15 +1309,12 @@
           <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
             {#each rxItems as draftItem, index}
               <div class="flex items-center gap-2 bg-blue-50/50 dark:bg-blue-950/20 p-2 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
-                <select
+                <input
+                  type="text"
                   bind:value={draftItem.yarn_count}
+                  placeholder="Yarn Count"
                   class="flex-1 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs"
-                >
-                  <option value="">Select Yarn Count</option>
-                  {#each fabricTypes as fabric}
-                    <option value={fabric.name}>{fabric.name}</option>
-                  {/each}
-                </select>
+                />
 
                 <input
                   type="number"
@@ -1352,24 +1407,19 @@
           <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
             {#each dxItems as draftItem, index}
               <div class="flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40">
-                <select
+                <input
+                  type="text"
                   bind:value={draftItem.yarn_count}
+                  placeholder="Yarn Count"
                   class="flex-1 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs"
-                >
-                  <option value="">Select Yarn Count</option>
-                  {#each fabricTypes as fabric}
-                    <option value={fabric.name}>{fabric.name}</option>
-                  {/each}
-                </select>
+                />
 
-                <select
+                <input
+                  type="text"
                   bind:value={draftItem.dia}
+                  placeholder="Dia"
                   class="w-20 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs font-semibold"
-                >
-                  {#each dias as dia}
-                    <option value={dia.value}>{dia.value}</option>
-                  {/each}
-                </select>
+                />
 
                 <input
                   type="number"
@@ -1495,15 +1545,12 @@
 
       {#each editingReceived.items as item, idx}
         <div class="flex items-center gap-2 bg-blue-50/50 dark:bg-blue-950/20 p-2 rounded-lg border border-blue-200/50 dark:border-blue-900/40">
-          <select
+          <input
+            type="text"
             bind:value={item.yarn_count}
+            placeholder="Yarn Count"
             class="flex-1 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded p-1.5 text-xs"
-          >
-            <option value="">Yarn Count</option>
-            {#each fabricTypes as fabric}
-              <option value={fabric.name}>{fabric.name}</option>
-            {/each}
-          </select>
+          />
 
           <input
             type="number"
@@ -1547,6 +1594,62 @@
         class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer"
       >
         Save Changes
+      </button>
+    </div>
+  </div>
+</Dialog>
+
+<!-- WEIGHT SUMMARY POPUP MODAL -->
+<Dialog open={isWeightSummaryModalOpen} onclose={() => (isWeightSummaryModalOpen = false)} title="Total Received & Delivered Weight Summary" maxWidth="max-w-md">
+  <div class="space-y-4 text-xs font-sans">
+    <p class="text-slate-500 dark:text-neutral-400">Select start and end dates to calculate total received and delivered weights for {selectedClient?.name}.</p>
+
+    <div class="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-neutral-800 p-3 rounded-xl">
+      <div>
+        <label for="summary-start-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Start Date</label>
+        <input
+          id="summary-start-date"
+          type="date"
+          bind:value={summaryStartDate}
+          class="w-full bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+        />
+      </div>
+
+      <div>
+        <label for="summary-end-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">End Date</label>
+        <input
+          id="summary-end-date"
+          type="date"
+          bind:value={summaryEndDate}
+          class="w-full bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+        />
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <div class="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900/50 flex items-center justify-between">
+        <span class="font-bold text-blue-800 dark:text-blue-300">Total Received</span>
+        <span class="font-mono text-base font-black text-blue-700 dark:text-blue-400">{summaryTotalReceivedKg} Kg</span>
+      </div>
+
+      <div class="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-between">
+        <span class="font-bold text-emerald-800 dark:text-emerald-300">Total Delivered</span>
+        <span class="font-mono text-base font-black text-emerald-700 dark:text-emerald-400">{summaryTotalDeliveredKg} Kg</span>
+      </div>
+
+      <div class="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/50 flex items-center justify-between">
+        <span class="font-bold text-amber-800 dark:text-amber-300">Net Balance (Received - Delivered)</span>
+        <span class="font-mono text-base font-black text-amber-700 dark:text-amber-400">{summaryBalanceKg} Kg</span>
+      </div>
+    </div>
+
+    <div class="pt-3 border-t border-slate-200 dark:border-neutral-800 flex justify-end">
+      <button
+        type="button"
+        onclick={() => (isWeightSummaryModalOpen = false)}
+        class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-neutral-800 text-xs font-semibold hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 cursor-pointer"
+      >
+        Close
       </button>
     </div>
   </div>
@@ -1810,7 +1913,7 @@
         <span>Yarn Items</span>
         <button
           type="button"
-          onclick={() => editingDelivered.items.push({ yarn_count: '', dia: dias[0]?.value || '30"', rolls: undefined, weight_kg: undefined })}
+          onclick={() => editingDelivered.items.push({ yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined })}
           class="text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1 cursor-pointer"
         >
           <Plus class="w-3.5 h-3.5" /> Add Row
@@ -1819,25 +1922,19 @@
 
       {#each editingDelivered.items as item, idx}
         <div class="flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded-lg border border-emerald-200/50 dark:border-emerald-900/40">
-          <select
+          <input
+            type="text"
             bind:value={item.yarn_count}
+            placeholder="Yarn Count"
             class="flex-1 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded p-1.5 text-xs"
-          >
-            <option value="">Yarn Count</option>
-            {#each fabricTypes as fabric}
-              <option value={fabric.name}>{fabric.name}</option>
-            {/each}
-          </select>
+          />
 
-
-          <select
+          <input
+            type="text"
             bind:value={item.dia}
+            placeholder="Dia"
             class="w-16 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded p-1.5 text-xs font-semibold"
-          >
-            {#each dias as dia}
-              <option value={dia.value}>{dia.value}</option>
-            {/each}
-          </select>
+          />
 
           <input
             type="number"

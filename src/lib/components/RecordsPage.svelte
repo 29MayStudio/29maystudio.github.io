@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { db, type ReceivedRecord, type DeliveredRecord, type FabricType, type Dia, type Client } from '../db';
+  import { db, type ReceivedRecord, type DeliveredRecord, type Client } from '../db';
   import * as XLSX from 'xlsx';
   import Card from './ui/Card.svelte';
   import Button from './ui/Button.svelte';
   import Input from './ui/Input.svelte';
   import Dialog from './ui/Dialog.svelte';
-  import { Receipt, Search, Eye, X, Download, FileSpreadsheet } from 'lucide-svelte';
+  import { Receipt, Search, Eye, X, Download, FileSpreadsheet, Users, UserPlus, Pencil, Trash2, Plus, AlertTriangle, AlertCircle, CheckCircle2, Database } from 'lucide-svelte';
 
   type AuditLogEntry = {
     id?: number;
@@ -25,8 +25,6 @@
 
   let receivedList = $state<ReceivedRecord[]>([]);
   let deliveredList = $state<DeliveredRecord[]>([]);
-  let fabricTypes = $state<FabricType[]>([]);
-  let dias = $state<Dia[]>([]);
   let clientsList = $state<Client[]>([]);
 
   let selectedRecord = $state<AuditLogEntry | null>(null);
@@ -39,12 +37,296 @@
   let isExcelModalOpen = $state(false);
   let selectedExportTarget = $state<string>('ALL'); // 'ALL' or client.id as string
 
+  // Client Management Modal state
+  let isClientModalOpen = $state(false);
+  let newClientName = $state('');
+  let newClientAddress = $state('');
+  let clientActionError = $state('');
+  let clientActionSuccess = $state('');
+  let isGeneratingMockData = $state(false);
+
+  let editingClient = $state<{ open: boolean; client: Client | null; name: string; address: string }>({
+    open: false,
+    client: null,
+    name: '',
+    address: ''
+  });
+
+  let confirmModal = $state<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  function openClientModal() {
+    newClientName = '';
+    newClientAddress = '';
+    clientActionError = '';
+    clientActionSuccess = '';
+    isClientModalOpen = true;
+  }
+
+  async function handleAddClient(e: SubmitEvent) {
+    e.preventDefault();
+    clientActionError = '';
+    clientActionSuccess = '';
+    if (!newClientName.trim()) {
+      clientActionError = 'Client name is required.';
+      return;
+    }
+
+    const existing = clientsList.find(
+      (c) => c.name.toLowerCase() === newClientName.trim().toLowerCase()
+    );
+    if (existing) {
+      clientActionError = 'A client with this name already exists.';
+      return;
+    }
+
+    await db.clients.add({
+      name: newClientName.trim(),
+      address: newClientAddress.trim() || undefined,
+      created_at: new Date().toISOString()
+    });
+
+    newClientName = '';
+    newClientAddress = '';
+    clientActionSuccess = 'Client added successfully!';
+    await loadRecords();
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    setTimeout(() => (clientActionSuccess = ''), 3000);
+  }
+
+  function openEditClientModal(client: Client) {
+    clientActionError = '';
+    clientActionSuccess = '';
+    editingClient = {
+      open: true,
+      client,
+      name: client.name,
+      address: client.address || ''
+    };
+  }
+
+  async function handleSaveEditClient() {
+    if (!editingClient.client || !editingClient.client.id) return;
+    const oldName = editingClient.client.name;
+    const newName = editingClient.name.trim();
+    const newAddress = editingClient.address.trim() || undefined;
+
+    if (!newName) {
+      clientActionError = 'Client name is required.';
+      return;
+    }
+
+    const existing = clientsList.find(
+      (c) => c.id !== editingClient.client!.id && c.name.toLowerCase() === newName.toLowerCase()
+    );
+    if (existing) {
+      clientActionError = 'A client with this name already exists.';
+      return;
+    }
+
+    const updatedClient = {
+      ...editingClient.client,
+      name: newName,
+      address: newAddress
+    };
+
+    await db.clients.put(JSON.parse(JSON.stringify(updatedClient)));
+
+    if (oldName !== newName) {
+      const rxRecords = await db.receivedRecords.where('client_id').equals(editingClient.client.id).toArray();
+      for (const rec of rxRecords) {
+        rec.client_name = newName;
+        await db.receivedRecords.put(JSON.parse(JSON.stringify(rec)));
+      }
+
+      const dxRecords = await db.deliveredRecords.where('client_id').equals(editingClient.client.id).toArray();
+      for (const rec of dxRecords) {
+        rec.client_name = newName;
+        await db.deliveredRecords.put(JSON.parse(JSON.stringify(rec)));
+      }
+    }
+
+    editingClient.open = false;
+    clientActionSuccess = 'Client details updated successfully!';
+    await loadRecords();
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    setTimeout(() => (clientActionSuccess = ''), 3000);
+  }
+
+  async function handleDeleteClient(client: Client) {
+    if (!client.id) return;
+    clientActionError = '';
+    clientActionSuccess = '';
+
+    // Check if client has data in received or delivered records
+    const rxCount = await db.receivedRecords.where('client_id').equals(client.id).count();
+    const dxCount = await db.deliveredRecords.where('client_id').equals(client.id).count();
+
+    if (rxCount > 0 || dxCount > 0) {
+      clientActionError = `Cannot delete client "${client.name}" because they have existing tally entries (${rxCount} received, ${dxCount} delivered). Deleting clients with data is not allowed to prevent data loss.`;
+      return;
+    }
+
+    confirmModal = {
+      open: true,
+      title: 'Delete Client',
+      message: `Are you sure you want to delete client "${client.name}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        confirmModal.open = false;
+        await db.clients.delete(client.id!);
+        clientActionSuccess = `Client "${client.name}" deleted successfully.`;
+        await loadRecords();
+        window.dispatchEvent(new CustomEvent('db-updated'));
+        setTimeout(() => (clientActionSuccess = ''), 3000);
+      }
+    };
+  }
+
+  async function generateMockData() {
+    isGeneratingMockData = true;
+    clientActionError = '';
+    clientActionSuccess = '';
+    try {
+      const targetClientNames = [
+        'A&Z Knit Fabrics',
+        'A.B. Knitting',
+        'K.S.T. Knitting',
+        'New Somrat',
+        'Ruhul Knit',
+        'Saiful & Brothers',
+        'TOP Enterprises'
+      ];
+
+      const clientMap = new Map<string, number>();
+
+      for (const name of targetClientNames) {
+        let existing = await db.clients.where('name').equalsIgnoreCase(name).first();
+        if (!existing) {
+          const id = await db.clients.add({
+            name,
+            address: 'Narayanganj, Bangladesh',
+            created_at: new Date(Date.now() - 240 * 24 * 60 * 60 * 1000).toISOString()
+          });
+          clientMap.set(name, id as number);
+        } else {
+          clientMap.set(name, existing.id!);
+        }
+      }
+
+      const yarnCounts = ['30s Cotton', '28s Polyester', 'Single Jersey', '1x1 Rib', '2x2 Rib', 'Interlock', 'Terry / French Terry'];
+      const diaList = ['24"', '28"', '30"', '32"', '36"'];
+
+      const today = new Date();
+      const rxToAdd: any[] = [];
+      const dxToAdd: any[] = [];
+
+      let challanCounter = 1001;
+
+      for (let dayOffset = 240; dayOffset >= 0; dayOffset -= Math.floor(Math.random() * 3) + 4) {
+        const entryDateObj = new Date(today.getTime() - dayOffset * 24 * 60 * 60 * 1000);
+        const dateStr = entryDateObj.toISOString().split('T')[0];
+
+        for (const [cName, cId] of clientMap.entries()) {
+          const addRx = Math.random() > 0.3;
+          const addDx = Math.random() > 0.3;
+
+          if (addRx) {
+            const chNo = `RX-${challanCounter++}`;
+            const itemCount = Math.floor(Math.random() * 2) + 1;
+            const items = [];
+            let totalBags = 0;
+            let totalWeight = 0;
+
+            for (let i = 0; i < itemCount; i++) {
+              const yarn = yarnCounts[Math.floor(Math.random() * yarnCounts.length)];
+              const bags = Math.floor(Math.random() * 30) + 10;
+              const weight = Number((bags * (22 + Math.random() * 5)).toFixed(2));
+              items.push({ yarn_count: yarn, bags, weight_kg: weight });
+              totalBags += bags;
+              totalWeight += weight;
+            }
+            totalWeight = Number(totalWeight.toFixed(2));
+
+            rxToAdd.push({
+              client_id: cId,
+              client_name: cName,
+              date: dateStr,
+              ch_no: chNo,
+              yarn_count: items[0].yarn_count,
+              bags: totalBags,
+              weight_kg: totalWeight,
+              total_weight_kg: totalWeight,
+              items,
+              timestamp: new Date(entryDateObj.getTime() + Math.floor(Math.random() * 36000000)).toISOString()
+            });
+          }
+
+          if (addDx) {
+            const chNo = `DX-${challanCounter++}`;
+            const itemCount = Math.floor(Math.random() * 2) + 1;
+            const items = [];
+            let totalRolls = 0;
+            let totalWeight = 0;
+
+            for (let i = 0; i < itemCount; i++) {
+              const yarn = yarnCounts[Math.floor(Math.random() * yarnCounts.length)];
+              const dia = diaList[Math.floor(Math.random() * diaList.length)];
+              const rolls = Math.floor(Math.random() * 25) + 5;
+              const weight = Number((rolls * (18 + Math.random() * 6)).toFixed(2));
+              items.push({ yarn_count: yarn, dia, rolls, weight_kg: weight });
+              totalRolls += rolls;
+              totalWeight += weight;
+            }
+            totalWeight = Number(totalWeight.toFixed(2));
+
+            dxToAdd.push({
+              client_id: cId,
+              client_name: cName,
+              date: dateStr,
+              ch_no: chNo,
+              yarn_count: items[0].yarn_count,
+              dia: items[0].dia,
+              rolls: totalRolls,
+              weight_kg: totalWeight,
+              total_weight_kg: totalWeight,
+              items,
+              timestamp: new Date(entryDateObj.getTime() + Math.floor(Math.random() * 36000000) + 3600000).toISOString()
+            });
+          }
+        }
+      }
+
+      if (rxToAdd.length > 0) {
+        await db.receivedRecords.bulkAdd(JSON.parse(JSON.stringify(rxToAdd)));
+      }
+      if (dxToAdd.length > 0) {
+        await db.deliveredRecords.bulkAdd(JSON.parse(JSON.stringify(dxToAdd)));
+      }
+
+      clientActionSuccess = 'Successfully generated 8 months of mock data!';
+      await loadRecords();
+      window.dispatchEvent(new CustomEvent('db-updated'));
+      setTimeout(() => (clientActionSuccess = ''), 4000);
+    } catch (err: any) {
+      clientActionError = err?.message || 'Failed to generate mock data.';
+    } finally {
+      isGeneratingMockData = false;
+    }
+  }
+
   async function loadRecords() {
     try {
       receivedList = await db.receivedRecords.orderBy('timestamp').reverse().toArray();
       deliveredList = await db.deliveredRecords.orderBy('timestamp').reverse().toArray();
-      fabricTypes = await db.fabricTypes.orderBy('name').toArray();
-      dias = await db.dias.toArray();
       clientsList = await db.clients.orderBy('name').toArray();
     } catch (e) {
       console.error('Failed to load records:', e);
@@ -247,10 +529,17 @@
       <p class="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Comprehensive audit history of received and delivered yarn challans.</p>
     </div>
 
-    <Button variant="default" size="sm" onclick={openExcelModal} class="flex items-center gap-1.5 cursor-pointer shrink-0 text-xs">
-      <FileSpreadsheet class="h-4 w-4" />
-      <span>Export Excel</span>
-    </Button>
+    <div class="flex items-center gap-2 shrink-0">
+      <Button variant="outline" size="sm" onclick={openClientModal} class="flex items-center gap-1.5 cursor-pointer text-xs">
+        <Users class="h-4 w-4" />
+        <span>Client Management</span>
+      </Button>
+
+      <Button variant="default" size="sm" onclick={openExcelModal} class="flex items-center gap-1.5 cursor-pointer text-xs">
+        <FileSpreadsheet class="h-4 w-4" />
+        <span>Export Excel</span>
+      </Button>
+    </div>
   </div>
 
   <!-- Filter & Search Controls -->
@@ -267,30 +556,24 @@
         />
       </div>
 
-      <!-- Yarn Type Filter Dropdown -->
+      <!-- Yarn Type Filter Text Input -->
       <div class="md:col-span-2">
-        <select
+        <Input
+          type="text"
+          placeholder="Filter by Yarn..."
           bind:value={yarnFilter}
-          class="w-full h-8 px-2 rounded-xl text-xs bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-        >
-          <option value="">All Yarn Types</option>
-          {#each fabricTypes as fabric}
-            <option value={fabric.name}>{fabric.name}</option>
-          {/each}
-        </select>
+          class="h-8 text-xs bg-slate-50 dark:bg-neutral-800 border-none"
+        />
       </div>
 
-      <!-- Dia Filter Dropdown -->
+      <!-- Dia Filter Text Input -->
       <div class="md:col-span-2">
-        <select
+        <Input
+          type="text"
+          placeholder="Filter by Dia..."
           bind:value={diaFilter}
-          class="w-full h-8 px-2 rounded-xl text-xs bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-        >
-          <option value="">All Dias</option>
-          {#each dias as dia}
-            <option value={dia.value}>{dia.value}</option>
-          {/each}
-        </select>
+          class="h-8 text-xs bg-slate-50 dark:bg-neutral-800 border-none"
+        />
       </div>
 
       <!-- Date Filter -->
@@ -505,6 +788,222 @@
         class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
       >
         <FileSpreadsheet class="w-4 h-4" /> Download Excel
+      </button>
+    </div>
+  </div>
+</Dialog>
+
+<!-- CLIENT MANAGEMENT MODAL -->
+<Dialog open={isClientModalOpen} onclose={() => (isClientModalOpen = false)} title="Client Management" maxWidth="max-w-2xl">
+  <div class="space-y-5 text-xs font-sans">
+    <!-- Header alert / status messages -->
+    {#if clientActionError}
+      <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
+        <AlertCircle class="w-4 h-4 shrink-0" />
+        <span>{clientActionError}</span>
+      </div>
+    {/if}
+
+    {#if clientActionSuccess}
+      <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
+        <CheckCircle2 class="w-4 h-4 shrink-0" />
+        <span>{clientActionSuccess}</span>
+      </div>
+    {/if}
+
+    <!-- Add Client Section -->
+    <div class="bg-slate-50 dark:bg-neutral-800/60 p-4 rounded-2xl border border-slate-200 dark:border-neutral-700/60">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+          <UserPlus class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <span>Add New Client</span>
+        </h3>
+
+        <button
+          type="button"
+          onclick={generateMockData}
+          disabled={isGeneratingMockData}
+          class="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-semibold text-[11px] flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+          title="Add 8 months worth of mock tally records for default clients"
+        >
+          <Database class="w-3.5 h-3.5" />
+          <span>{isGeneratingMockData ? 'Generating...' : 'Add Mock Data'}</span>
+        </button>
+      </div>
+
+      <form onsubmit={handleAddClient} class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+        <div class="sm:col-span-5">
+          <label for="new-client-name" class="block font-semibold text-slate-600 dark:text-neutral-300 mb-1">
+            Client / Company Name *
+          </label>
+          <Input
+            id="new-client-name"
+            type="text"
+            bind:value={newClientName}
+            placeholder="e.g. Apex Knitwear Ltd."
+            class="h-8 text-xs"
+            required
+          />
+        </div>
+
+        <div class="sm:col-span-5">
+          <label for="new-client-address" class="block font-semibold text-slate-600 dark:text-neutral-300 mb-1">
+            Address / Location (Optional)
+          </label>
+          <Input
+            id="new-client-address"
+            type="text"
+            bind:value={newClientAddress}
+            placeholder="e.g. Gazipur, Dhaka"
+            class="h-8 text-xs"
+          />
+        </div>
+
+        <div class="sm:col-span-2">
+          <button
+            type="submit"
+            class="w-full h-8 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+          >
+            <Plus class="w-3.5 h-3.5" /> Add
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Registered Clients Table -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between font-bold text-slate-800 dark:text-neutral-200">
+        <span>Registered Clients ({clientsList.length})</span>
+        <span class="text-[11px] text-slate-400 font-normal">Clients with data cannot be deleted</span>
+      </div>
+
+      <div class="max-h-64 overflow-y-auto border border-slate-200 dark:border-neutral-800 rounded-xl bg-white dark:bg-neutral-900">
+        {#if clientsList.length === 0}
+          <div class="p-6 text-center text-slate-400">No clients registered yet.</div>
+        {:else}
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-neutral-300 font-semibold border-b border-slate-200 dark:border-neutral-700">
+              <tr>
+                <th class="p-2.5">Client Name</th>
+                <th class="p-2.5">Address</th>
+                <th class="p-2.5 text-right w-20">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-neutral-800">
+              {#each clientsList as client}
+                <tr class="hover:bg-slate-50 dark:hover:bg-neutral-800/50 transition-colors">
+                  <td class="p-2.5 font-bold text-slate-900 dark:text-white">{client.name}</td>
+                  <td class="p-2.5 text-slate-500 dark:text-neutral-400">{client.address || '-'}</td>
+                  <td class="p-2.5 text-right">
+                    <div class="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        onclick={() => openEditClientModal(client)}
+                        class="p-1 text-slate-400 hover:text-blue-500 rounded-md hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                        title="Edit Client"
+                      >
+                        <Pencil class="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onclick={() => handleDeleteClient(client)}
+                        class="p-1 text-slate-400 hover:text-rose-500 rounded-md hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                        title="Delete Client"
+                      >
+                        <Trash2 class="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {/if}
+      </div>
+    </div>
+
+    <div class="pt-3 border-t border-slate-100 dark:border-neutral-800 flex justify-end">
+      <button
+        type="button"
+        onclick={() => (isClientModalOpen = false)}
+        class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-neutral-800 text-xs font-semibold hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 cursor-pointer"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+</Dialog>
+
+<!-- EDIT CLIENT MODAL -->
+<Dialog open={editingClient.open} onclose={() => (editingClient.open = false)} title="Edit Client Details" maxWidth="max-w-md">
+  <div class="space-y-4 text-xs">
+    <div>
+      <label for="edit-client-name" class="block font-semibold text-slate-600 dark:text-neutral-300 mb-1">
+        Client Name *
+      </label>
+      <Input
+        id="edit-client-name"
+        type="text"
+        bind:value={editingClient.name}
+        class="h-8 text-xs"
+        required
+      />
+    </div>
+
+    <div>
+      <label for="edit-client-address" class="block font-semibold text-slate-600 dark:text-neutral-300 mb-1">
+        Address / Location
+      </label>
+      <textarea
+        id="edit-client-address"
+        bind:value={editingClient.address}
+        rows="3"
+        class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-800 text-slate-900 dark:text-white text-xs resize-none"
+      ></textarea>
+    </div>
+
+    <div class="pt-3 border-t border-slate-100 dark:border-neutral-800 flex justify-end gap-2">
+      <button
+        type="button"
+        onclick={() => (editingClient.open = false)}
+        class="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-neutral-800 hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-800 dark:text-neutral-200 text-xs font-semibold cursor-pointer"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onclick={handleSaveEditClient}
+        class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer"
+      >
+        Save Changes
+      </button>
+    </div>
+  </div>
+</Dialog>
+
+<!-- CONFIRM DELETE DIALOG -->
+<Dialog open={confirmModal.open} onclose={() => (confirmModal.open = false)} variant="warning" maxWidth="max-w-sm">
+  <div class="flex flex-col items-center text-center p-2">
+    <div class="w-12 h-12 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-3">
+      <AlertTriangle class="w-6 h-6" />
+    </div>
+    <h2 class="text-lg font-bold text-rose-600 dark:text-rose-400 mb-1">{confirmModal.title}</h2>
+    <p class="text-xs text-slate-600 dark:text-neutral-300 my-1">{confirmModal.message}</p>
+
+    <div class="mt-4 w-full flex justify-end gap-2 pt-2 border-t border-rose-500/10">
+      <button
+        type="button"
+        onclick={() => (confirmModal.open = false)}
+        class="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-neutral-800 hover:bg-slate-300 dark:hover:bg-neutral-700 text-xs font-semibold text-slate-800 dark:text-neutral-200 cursor-pointer"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onclick={confirmModal.onConfirm}
+        class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer"
+      >
+        Delete Client
       </button>
     </div>
   </div>
