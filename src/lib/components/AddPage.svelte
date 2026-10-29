@@ -108,7 +108,6 @@
               const weight = Number((bags * (22 + Math.random() * 5)).toFixed(2));
               items.push({
                 yarn_count: yarn,
-                lot: `LOT-${Math.floor(1000 + Math.random() * 9000)}`,
                 bags,
                 weight_kg: weight
               });
@@ -123,7 +122,6 @@
               date: dateStr,
               ch_no: chNo,
               yarn_count: items[0].yarn_count,
-              lot: items[0].lot,
               bags: totalBags,
               weight_kg: totalWeight,
               total_weight_kg: totalWeight,
@@ -146,7 +144,6 @@
               const weight = Number((rolls * (18 + Math.random() * 6)).toFixed(2));
               items.push({
                 yarn_count: yarn,
-                lot: `LOT-${Math.floor(1000 + Math.random() * 9000)}`,
                 dia,
                 rolls,
                 weight_kg: weight
@@ -162,7 +159,6 @@
               date: dateStr,
               ch_no: chNo,
               yarn_count: items[0].yarn_count,
-              lot: items[0].lot,
               dia: items[0].dia,
               rolls: totalRolls,
               weight_kg: totalWeight,

@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    PlusCircle,
+    FolderCog,
     Receipt,
     Home
   } from 'lucide-svelte';
@@ -29,7 +29,7 @@
 
   const navItems = [
     { id: 'home', label: 'Home (Received & Delivered)', icon: Home },
-    { id: 'add', label: 'Add (Clients, Yarn Types & Dias)', icon: PlusCircle },
+    { id: 'add', label: 'Add (Clients, Yarn Types & Dias)', icon: FolderCog },
     { id: 'records', label: 'Records & Audit Logs', icon: Receipt },
   ];
 </script>
