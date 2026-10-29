@@ -43,6 +43,7 @@
   let searchQuery = $state('');
   let isSearchFocused = $state(false);
   let highlightedIndex = $state<number>(0);
+  let showHomeSearch = $state(false);
 
   // Today Date Helper
   const getTodayString = () => new Date().toISOString().split('T')[0];
@@ -138,9 +139,36 @@
     )
   );
 
+  let currentClientBalance = $derived(
+    Number(
+      (
+        todayReceivedList.reduce((acc, r) => acc + (r.total_weight_kg || r.weight_kg || 0), 0) -
+        todayDeliveredList.reduce((acc, d) => acc + (d.total_weight_kg || d.weight_kg || 0), 0)
+      ).toFixed(2)
+    )
+  );
+
+  function getReceivedBalance(record: ReceivedRecord): number {
+    const rxSum = todayReceivedList.reduce((sum, rx) => {
+      if (rx.date < record.date || (rx.date === record.date && rx.timestamp <= record.timestamp)) {
+        return sum + Number(rx.total_weight_kg || rx.weight_kg || 0);
+      }
+      return sum;
+    }, 0);
+
+    const dxSum = todayDeliveredList.reduce((sum, dx) => {
+      if (dx.date < record.date || (dx.date === record.date && dx.timestamp <= record.timestamp)) {
+        return sum + Number(dx.total_weight_kg || dx.weight_kg || 0);
+      }
+      return sum;
+    }, 0);
+
+    return Number((rxSum - dxSum).toFixed(2));
+  }
+
   function getDeliveredBalance(record: DeliveredRecord): number {
     const rxSum = todayReceivedList.reduce((sum, rx) => {
-      if (rx.date <= record.date) {
+      if (rx.date < record.date || (rx.date === record.date && rx.timestamp <= record.timestamp)) {
         return sum + Number(rx.total_weight_kg || rx.weight_kg || 0);
       }
       return sum;
@@ -383,6 +411,7 @@
 
   async function selectClient(client: Client) {
     selectedClient = client;
+    showHomeSearch = false;
     searchQuery = '';
     isSearchFocused = false;
     if (client.id) {
@@ -390,8 +419,17 @@
     }
   }
 
+  export function openHomeSearch() {
+    showHomeSearch = true;
+  }
+
+  export function openActiveSession() {
+    showHomeSearch = false;
+  }
+
   export function clearSelectedClient() {
     selectedClient = null;
+    showHomeSearch = false;
     searchQuery = '';
     todayReceivedList = [];
     todayDeliveredList = [];
@@ -549,11 +587,19 @@
   let summaryStartDate = $state('');
   let summaryEndDate = $state('');
 
+  function getEarliestClientDate(): string {
+    let earliest = getTodayString();
+    for (const r of todayReceivedList) {
+      if (r.date && r.date < earliest) earliest = r.date;
+    }
+    for (const d of todayDeliveredList) {
+      if (d.date && d.date < earliest) earliest = d.date;
+    }
+    return earliest;
+  }
+
   function openWeightSummaryModal() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    summaryStartDate = `${year}-${month}-01`;
+    summaryStartDate = getEarliestClientDate();
     summaryEndDate = getTodayString();
     isWeightSummaryModalOpen = true;
   }
@@ -598,10 +644,7 @@
   let statementEndDate = $state('');
 
   function openStatementModal() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    statementStartDate = `${year}-${month}-01`;
+    statementStartDate = getEarliestClientDate();
     statementEndDate = getTodayString();
     isStatementModalOpen = true;
   }
@@ -658,7 +701,7 @@
 </script>
 
 <div class="h-full flex flex-col relative overflow-hidden bg-slate-100 dark:bg-black text-slate-900 dark:text-slate-100 font-sans print:hidden">
-  {#if !selectedClient}
+  {#if !selectedClient || showHomeSearch}
     <!-- INITIAL CENTERED SEARCH SCREEN -->
     <div in:fade={{ duration: 250 }} out:fade={{ duration: 150 }} class="flex-1 flex flex-col items-center justify-center p-6">
       <div class="w-full max-w-2xl text-center space-y-6">
@@ -859,6 +902,7 @@
                   <th class="px-2.5 py-2">Yarn Count</th>
                   <th class="px-2.5 py-2 w-16 text-center">Bags</th>
                   <th class="px-2.5 py-2 w-24 text-right">Weight (Kg)</th>
+                  <th class="px-2.5 py-2 w-24 text-right">Balance</th>
                   <th class="px-2.5 py-2 w-10 text-center">?</th>
                 </tr>
               </thead>
@@ -866,7 +910,7 @@
               <tbody class="divide-y divide-slate-200 dark:divide-neutral-800 bg-white dark:bg-neutral-900">
                 {#if todayReceivedList.length === 0}
                   <tr>
-                    <td colspan="6" class="p-8 text-center text-slate-400 text-sm italic">
+                    <td colspan="7" class="p-8 text-center text-slate-400 text-sm italic">
                       No received tally entries found for this client.
                     </td>
                   </tr>
@@ -883,6 +927,9 @@
                           <td class="p-2 text-center font-mono">{item.bags}</td>
                           <td class="p-2 text-right font-mono font-bold text-blue-700 dark:text-blue-400">{item.weight_kg}</td>
                           {#if itemIdx === 0}
+                            <td rowspan={record.items.length} class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400 align-top bg-slate-50/30 dark:bg-neutral-900/30">
+                              {getReceivedBalance(record)} kg
+                            </td>
                             <td rowspan={record.items.length} class="p-2 text-center align-middle bg-slate-50/30 dark:bg-neutral-900/30">
                               <div class="relative inline-block text-left" role="presentation" onmouseleave={() => (activePopover = null)}>
                                 <button
@@ -939,6 +986,7 @@
                           <td class="p-1.5 text-center font-mono text-blue-800 dark:text-blue-300">{record.bags}</td>
                           <td class="p-1.5 text-right font-mono text-blue-800 dark:text-blue-300">{record.total_weight_kg} kg</td>
                           <td></td>
+                          <td></td>
                         </tr>
                       {/if}
                     {:else}
@@ -949,6 +997,7 @@
                         <td class="p-2">{record.yarn_count}</td>
                         <td class="p-2 text-center font-mono">{record.bags}</td>
                         <td class="p-2 text-right font-mono font-bold text-blue-700 dark:text-blue-400">{record.weight_kg}</td>
+                        <td class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400">{getReceivedBalance(record)} kg</td>
                         <td class="p-2 text-center">
                           <div class="relative inline-block text-left" role="presentation" onmouseleave={() => (activePopover = null)}>
                             <button
@@ -1303,7 +1352,7 @@
         <div class="space-y-2">
           <div class="flex items-center justify-between font-bold text-slate-700 dark:text-slate-300">
             <span>Yarn Items</span>
-            <span class="text-[11px] text-blue-600 dark:text-blue-400 font-mono">Total: {rxTotalBags} Bags | {rxTotalWeight} Kg</span>
+            <span class="text-[11px] text-blue-600 dark:text-blue-400 font-mono">Total: {rxTotalBags} Bags | {rxTotalWeight} Kg | Balance: {(currentClientBalance + rxTotalWeight).toFixed(2)} Kg</span>
           </div>
 
           <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -1401,7 +1450,7 @@
         <div class="space-y-2">
           <div class="flex items-center justify-between font-bold text-slate-700 dark:text-slate-300">
             <span>Yarn Items</span>
-            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono">Total: {dxTotalRolls} Rolls | {dxTotalWeight} Kg</span>
+            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono">Total: {dxTotalRolls} Rolls | {dxTotalWeight} Kg | Balance: {(currentClientBalance - dxTotalWeight).toFixed(2)} Kg</span>
           </div>
 
           <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -1533,7 +1582,12 @@
 
     <div class="space-y-2">
       <div class="font-bold text-slate-700 dark:text-slate-300 flex justify-between items-center">
-        <span>Yarn Items</span>
+        <div class="flex items-center gap-3">
+          <span>Yarn Items</span>
+          <span class="text-[11px] text-amber-600 dark:text-amber-400 font-mono font-bold">
+            Total Weight: {Number(editingReceived.items.reduce((acc, i) => acc + (i.weight_kg ? Number(i.weight_kg) : 0), 0).toFixed(2))} Kg | Balance: {(currentClientBalance + Number(editingReceived.items.reduce((acc, i) => acc + (i.weight_kg ? Number(i.weight_kg) : 0), 0).toFixed(2))).toFixed(2)} Kg
+          </span>
+        </div>
         <button
           type="button"
           onclick={() => editingReceived.items.push({ yarn_count: '', bags: undefined, weight_kg: undefined })}
@@ -1693,6 +1747,10 @@
         <span>Delivered Tally:</span>
         <span class="font-bold">{filteredStatementDelivered.length} Entries ({statementDxTotalRolls} Rolls, {statementDxTotalWeight} Kg)</span>
       </div>
+      <div class="flex justify-between pt-1 border-t border-emerald-200 dark:border-emerald-900/50 font-bold">
+        <span>Net Balance:</span>
+        <span class="font-mono text-emerald-800 dark:text-emerald-300">{Number((statementRxTotalWeight - statementDxTotalWeight).toFixed(2))} Kg</span>
+      </div>
     </div>
 
     <div class="pt-3 border-t border-slate-200 dark:border-neutral-800 flex items-center justify-between">
@@ -1744,7 +1802,8 @@
                   <h2 class="text-base font-bold text-black m-0 leading-tight">{selectedClient.name}</h2>
                 </div>
                 <div class="text-right text-xs text-black font-mono">
-                  <span class="font-bold">Date Range:</span> {formatDateDMY(statementStartDate)} &mdash; {formatDateDMY(statementEndDate)}
+                  <div><span class="font-bold">Date Range:</span> {formatDateDMY(statementStartDate)} &mdash; {formatDateDMY(statementEndDate)}</div>
+                  <div><span class="font-bold">Net Balance:</span> {Number((statementRxTotalWeight - statementDxTotalWeight).toFixed(2))} Kg</div>
                 </div>
               </div>
             </div>
