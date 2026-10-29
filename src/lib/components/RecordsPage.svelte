@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { db, type ReceivedRecord, type DeliveredRecord, type Client } from '../db';
+  import { formatDateDMY } from '../utils';
   import * as XLSX from 'xlsx';
   import Card from './ui/Card.svelte';
   import Button from './ui/Button.svelte';
@@ -461,7 +462,7 @@
 
       items.forEach((item, itemIdx) => {
         rows.push({
-          'Date': itemIdx === 0 ? log.date : '',
+          'Date': itemIdx === 0 ? formatDateDMY(log.date) : '',
           'Time': itemIdx === 0 ? log.time : '',
           'Client': itemIdx === 0 ? log.client_name : '',
           'Type': itemIdx === 0 ? log.type : '',
@@ -666,7 +667,7 @@
               <tr class="hover:bg-slate-50 dark:hover:bg-neutral-800/40 transition-colors">
                 <!-- Date & Time -->
                 <td class="p-3 align-top">
-                  <div class="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">{log.date}</div>
+                  <div class="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">{formatDateDMY(log.date)}</div>
                   <div class="font-mono text-[10px] text-slate-400">{log.time}</div>
                 </td>
 
@@ -1018,7 +1019,7 @@
       <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-neutral-800">
         <div>
           <h3 class="font-bold text-base text-slate-900 dark:text-white">{selectedRecord.client_name}</h3>
-          <p class="text-xs text-slate-400">{selectedRecord.date} at {selectedRecord.time} | CH No. {rec.ch_no}</p>
+          <p class="text-xs text-slate-400">{formatDateDMY(selectedRecord.date)} at {selectedRecord.time} | CH No. {rec.ch_no}</p>
         </div>
         {#if selectedRecord.type === 'Received'}
           <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400">

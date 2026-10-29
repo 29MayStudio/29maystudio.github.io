@@ -14,14 +14,23 @@ export function formatCurrency(amount: number): string {
   }).format(amount).replace('BDT', '৳');
 }
 
+export function formatDateDMY(dateStr: string | Date | null | undefined): string {
+  if (!dateStr) return '-';
+  if (typeof dateStr === 'string') {
+    const cleanDate = dateStr.split('T')[0];
+    const parts = cleanDate.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+  }
+  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+  if (isNaN(date.getTime())) return String(dateStr);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 export function formatDate(dateString: string | Date): string {
-  if (!dateString) return '';
-  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+  return formatDateDMY(dateString);
 }
