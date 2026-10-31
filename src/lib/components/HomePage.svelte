@@ -28,6 +28,7 @@
     Scale
   } from 'lucide-svelte';
   import Dialog from './ui/Dialog.svelte';
+  import DateInput from './ui/DateInput.svelte';
 
   interface Props {
     onNavigateToRecords?: () => void;
@@ -61,14 +62,29 @@
   // Scroll Container References for Tally Grids
   let rxContainer = $state<HTMLElement | null>(null);
   let dxContainer = $state<HTMLElement | null>(null);
+  let savedRxScrollTop = 0;
+  let savedDxScrollTop = 0;
 
   function scrollTallyToBottom() {
     setTimeout(() => {
       if (rxContainer) {
         rxContainer.scrollTop = rxContainer.scrollHeight;
+        savedRxScrollTop = rxContainer.scrollTop;
       }
       if (dxContainer) {
         dxContainer.scrollTop = dxContainer.scrollHeight;
+        savedDxScrollTop = dxContainer.scrollTop;
+      }
+    }, 50);
+  }
+
+  function restoreScrollPosition() {
+    setTimeout(() => {
+      if (rxContainer) {
+        rxContainer.scrollTop = savedRxScrollTop > 0 ? savedRxScrollTop : rxContainer.scrollHeight;
+      }
+      if (dxContainer) {
+        dxContainer.scrollTop = savedDxScrollTop > 0 ? savedDxScrollTop : dxContainer.scrollHeight;
       }
     }, 50);
   }
@@ -420,11 +436,14 @@
   }
 
   export function openHomeSearch() {
+    if (rxContainer) savedRxScrollTop = rxContainer.scrollTop;
+    if (dxContainer) savedDxScrollTop = dxContainer.scrollTop;
     showHomeSearch = true;
   }
 
   export function openActiveSession() {
     showHomeSearch = false;
+    restoreScrollPosition();
   }
 
   export function clearSelectedClient() {
@@ -684,10 +703,8 @@
   function handlePrintStatement() {
     if (!selectedClient) return;
     const originalTitle = document.title;
-    const dateRangeStr = statementStartDate && statementEndDate
-      ? `(${statementStartDate} to ${statementEndDate})`
-      : '';
-    document.title = `${selectedClient.name} ${dateRangeStr}`.trim();
+    // Suppress browser header title & timestamp on print
+    document.title = ' ';
 
     const cleanup = () => {
       document.title = originalTitle;
@@ -701,126 +718,126 @@
 </script>
 
 <div class="h-full flex flex-col relative overflow-hidden bg-slate-100 dark:bg-black text-slate-900 dark:text-slate-100 font-sans print:hidden">
-  {#if !selectedClient || showHomeSearch}
-    <!-- INITIAL CENTERED SEARCH SCREEN -->
-    <div in:fade={{ duration: 250 }} out:fade={{ duration: 150 }} class="flex-1 flex flex-col items-center justify-center p-6">
-      <div class="w-full max-w-2xl text-center space-y-6">
-        <!-- Brand / Title Header -->
-        <div class="space-y-2">
-          <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            M/S A.B.S Knit Fabrics
-          </h1>
-        </div>
+  <!-- SEARCH SCREEN: Shown when no client is selected, OR when showHomeSearch is toggled -->
+  <div class={!selectedClient || showHomeSearch ? 'flex-1 flex flex-col items-center justify-center p-6' : 'hidden'}>
+    <div class="w-full max-w-2xl text-center space-y-6">
+      <!-- Brand / Title Header -->
+      <div class="space-y-2">
+        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          M/S A.B.S Knit Fabrics
+        </h1>
+      </div>
 
-        <!-- Centered Search Bar with Autocomplete Dropdown -->
-        <div class="relative text-left">
-          <div class="relative flex items-center shadow-xl rounded-2xl border-2 border-emerald-500/30 focus-within:border-emerald-500 bg-white dark:bg-neutral-900 transition-all">
-            <Search class="w-6 h-6 text-slate-400 dark:text-neutral-500 ml-4 shrink-0" />
-            <input
-              type="text"
-              bind:value={searchQuery}
-              onfocus={() => {
-                isSearchFocused = true;
-                highlightedIndex = 0;
-              }}
-              onkeydown={handleSearchKeydown}
-              placeholder="Type client name to search autocomplete..."
-              class="w-full py-4 px-4 bg-transparent text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 text-lg font-medium focus:outline-none"
-            />
-            {#if searchQuery}
-              <button
-                type="button"
-                onclick={() => (searchQuery = '')}
-                class="mr-4 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-              >
-                <X class="w-5 h-5" />
-              </button>
-            {/if}
-          </div>
-
-          <!-- Autocomplete Suggestions Dropdown -->
-          {#if searchQuery.trim().length > 0}
-            <div class="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl shadow-2xl z-50 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150">
-              {#if autocompleteSuggestions.length === 0}
-                <div class="p-6 text-center text-slate-500 dark:text-neutral-400">
-                  <p class="font-semibold text-slate-700 dark:text-neutral-200">No client found matching "{searchQuery}"</p>
-                  <p class="text-xs mt-1 text-slate-400">Add new clients in Client Management under All Records & Audit Logs.</p>
-                  {#if onNavigateToRecords}
-                    <button
-                      type="button"
-                      onclick={onNavigateToRecords}
-                      class="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-medium text-xs rounded-xl hover:bg-emerald-500 transition-colors cursor-pointer"
-                    >
-                      <Plus class="w-4 h-4" /> Go to Client Management
-                    </button>
-                  {/if}
-                </div>
-              {:else}
-                <div class="p-2 divide-y divide-slate-100 dark:divide-neutral-800/60">
-                  <div class="px-3 py-1.5 text-xs font-semibold text-slate-400 dark:text-neutral-500">
-                    Select a Client from List:
-                  </div>
-                  {#each autocompleteSuggestions as client, idx}
-                    <button
-                      type="button"
-                      onclick={() => selectClient(client)}
-                      onmouseenter={() => (highlightedIndex = idx)}
-                      class={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between group cursor-pointer ${
-                        highlightedIndex === idx
-                          ? 'bg-emerald-50 dark:bg-neutral-800/90 ring-1 ring-emerald-500/30'
-                          : 'hover:bg-emerald-50 dark:hover:bg-neutral-800/80'
-                      }`}
-                    >
-                      <div>
-                        <div class={`font-bold text-base transition-colors ${
-                          highlightedIndex === idx
-                            ? 'text-emerald-700 dark:text-emerald-400'
-                            : 'text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400'
-                        }`}>
-                          {client.name}
-                        </div>
-                        {#if client.phone || client.address}
-                          <div class="text-xs text-slate-500 dark:text-neutral-400 mt-0.5 flex items-center gap-3">
-                            {#if client.phone}<span>📞 {client.phone}</span>{/if}
-                            {#if client.address}<span>{client.address}</span>{/if}
-                          </div>
-                        {/if}
-                      </div>
-                      <div class={`w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0 ${
-                        highlightedIndex === idx
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-100 dark:bg-neutral-800 group-hover:bg-emerald-600 group-hover:text-white text-slate-400'
-                      }`}>
-                        <Check class="w-4 h-4" />
-                      </div>
-                    </button>
-                  {/each}
-                </div>
-              {/if}
-            </div>
+      <!-- Centered Search Bar with Autocomplete Dropdown -->
+      <div class="relative text-left">
+        <div class="relative flex items-center shadow-xl rounded-2xl border-2 border-emerald-500/30 focus-within:border-emerald-500 bg-white dark:bg-neutral-900 transition-all">
+          <Search class="w-6 h-6 text-slate-400 dark:text-neutral-500 ml-4 shrink-0" />
+          <input
+            type="text"
+            bind:value={searchQuery}
+            onfocus={() => {
+              isSearchFocused = true;
+              highlightedIndex = 0;
+            }}
+            onkeydown={handleSearchKeydown}
+            placeholder="Type client name to search autocomplete..."
+            class="w-full py-4 px-4 bg-transparent text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 text-lg font-medium focus:outline-none"
+          />
+          {#if searchQuery}
+            <button
+              type="button"
+              onclick={() => (searchQuery = '')}
+              class="mr-4 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+            >
+              <X class="w-5 h-5" />
+            </button>
           {/if}
         </div>
 
-        {#if allClients.length === 0}
-          <div class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-700 dark:text-amber-400 text-xs flex items-center justify-between">
-            <span>No clients registered in database yet. Add clients in Client Management.</span>
-            {#if onNavigateToRecords}
-              <button
-                type="button"
-                onclick={onNavigateToRecords}
-                class="font-bold underline hover:opacity-80 cursor-pointer ml-2"
-              >
-                Manage Clients Now →
-              </button>
+        <!-- Autocomplete Suggestions Dropdown -->
+        {#if searchQuery.trim().length > 0}
+          <div class="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl shadow-2xl z-50 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150">
+            {#if autocompleteSuggestions.length === 0}
+              <div class="p-6 text-center text-slate-500 dark:text-neutral-400">
+                <p class="font-semibold text-slate-700 dark:text-neutral-200">No client found matching "{searchQuery}"</p>
+                <p class="text-xs mt-1 text-slate-400">Add new clients in Client Management under All Records & Audit Logs.</p>
+                {#if onNavigateToRecords}
+                  <button
+                    type="button"
+                    onclick={onNavigateToRecords}
+                    class="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-medium text-xs rounded-xl hover:bg-emerald-500 transition-colors cursor-pointer"
+                  >
+                    <Plus class="w-4 h-4" /> Go to Client Management
+                  </button>
+                {/if}
+              </div>
+            {:else}
+              <div class="p-2 divide-y divide-slate-100 dark:divide-neutral-800/60">
+                <div class="px-3 py-1.5 text-xs font-semibold text-slate-400 dark:text-neutral-500">
+                  Select a Client from List:
+                </div>
+                {#each autocompleteSuggestions as client, idx}
+                  <button
+                    type="button"
+                    onclick={() => selectClient(client)}
+                    onmouseenter={() => (highlightedIndex = idx)}
+                    class={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between group cursor-pointer ${
+                      highlightedIndex === idx
+                        ? 'bg-emerald-50 dark:bg-neutral-800/90 ring-1 ring-emerald-500/30'
+                        : 'hover:bg-emerald-50 dark:hover:bg-neutral-800/80'
+                    }`}
+                  >
+                    <div>
+                      <div class={`font-bold text-base transition-colors ${
+                        highlightedIndex === idx
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400'
+                      }`}>
+                        {client.name}
+                      </div>
+                      {#if client.phone || client.address}
+                        <div class="text-xs text-slate-500 dark:text-neutral-400 mt-0.5 flex items-center gap-3">
+                          {#if client.phone}<span>📞 {client.phone}</span>{/if}
+                          {#if client.address}<span>{client.address}</span>{/if}
+                        </div>
+                      {/if}
+                    </div>
+                    <div class={`w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0 ${
+                      highlightedIndex === idx
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 dark:bg-neutral-800 group-hover:bg-emerald-600 group-hover:text-white text-slate-400'
+                    }`}>
+                      <Check class="w-4 h-4" />
+                    </div>
+                  </button>
+                {/each}
+              </div>
             {/if}
           </div>
         {/if}
       </div>
-    </div>
 
-  {:else}
+      {#if allClients.length === 0}
+        <div class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-700 dark:text-amber-400 text-xs flex items-center justify-between">
+          <span>No clients registered in database yet. Add clients in Client Management.</span>
+          {#if onNavigateToRecords}
+            <button
+              type="button"
+              onclick={onNavigateToRecords}
+              class="font-bold underline hover:opacity-80 cursor-pointer ml-2"
+            >
+              Manage Clients Now →
+            </button>
+          {/if}
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  {#if selectedClient}
     <!-- SELECTED CLIENT TOP SCREEN WITH TALLY / EXCEL GRID -->
-    <div in:fade={{ duration: 250 }} out:fade={{ duration: 150 }} class="h-full flex flex-row overflow-hidden bg-white dark:bg-black">
+    <!-- Kept in the DOM and toggled via CSS hidden so scroll position is never lost -->
+    <div class={showHomeSearch ? 'hidden' : 'h-full flex flex-row overflow-hidden bg-white dark:bg-black'}>
       <!-- Main Content Container (Header + Dual Tally Grids) -->
       <div class="flex-1 flex flex-col h-full overflow-hidden">
         <!-- Compact Top Header Bar -->
@@ -898,11 +915,11 @@
               <thead class="bg-slate-200 dark:bg-neutral-800 text-slate-700 dark:text-neutral-200 font-semibold text-xs sticky top-0 z-10 border-b border-slate-300 dark:border-neutral-700">
                 <tr class="divide-x divide-slate-300 dark:divide-neutral-700">
                   <th class="px-2.5 py-2 w-24">Date</th>
-                  <th class="px-2.5 py-2">CH No.</th>
+                  <th class="px-2.5 py-2">Challan</th>
                   <th class="px-2.5 py-2">Yarn Count</th>
                   <th class="px-2.5 py-2 w-16 text-center">Bags</th>
                   <th class="px-2.5 py-2 w-24 text-right">Weight (Kg)</th>
-                  <th class="px-2.5 py-2 w-24 text-right">Balance</th>
+                  <th class="px-2.5 py-2 w-24 text-right">Balance (Kg)</th>
                   <th class="px-2.5 py-2 w-10 text-center">?</th>
                 </tr>
               </thead>
@@ -928,7 +945,7 @@
                           <td class="p-2 text-right font-mono font-bold text-blue-700 dark:text-blue-400">{item.weight_kg}</td>
                           {#if itemIdx === 0}
                             <td rowspan={record.items.length} class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400 align-top bg-slate-50/30 dark:bg-neutral-900/30">
-                              {getReceivedBalance(record)} kg
+                              {getReceivedBalance(record)}
                             </td>
                             <td rowspan={record.items.length} class="p-2 text-center align-middle bg-slate-50/30 dark:bg-neutral-900/30">
                               <div class="relative inline-block text-left" role="presentation" onmouseleave={() => (activePopover = null)}>
@@ -997,7 +1014,7 @@
                         <td class="p-2">{record.yarn_count}</td>
                         <td class="p-2 text-center font-mono">{record.bags}</td>
                         <td class="p-2 text-right font-mono font-bold text-blue-700 dark:text-blue-400">{record.weight_kg}</td>
-                        <td class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400">{getReceivedBalance(record)} kg</td>
+                        <td class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400">{getReceivedBalance(record)}</td>
                         <td class="p-2 text-center">
                           <div class="relative inline-block text-left" role="presentation" onmouseleave={() => (activePopover = null)}>
                             <button
@@ -1069,12 +1086,12 @@
               <thead class="bg-slate-200 dark:bg-neutral-800 text-slate-700 dark:text-neutral-200 font-semibold text-xs sticky top-0 z-10 border-b border-slate-300 dark:border-neutral-700">
                 <tr class="divide-x divide-slate-300 dark:divide-neutral-700">
                   <th class="px-2.5 py-2 w-24">Date</th>
-                  <th class="px-2.5 py-2">CH No.</th>
+                  <th class="px-2.5 py-2">Challan</th>
                   <th class="px-2.5 py-2">Yarn Count</th>
                   <th class="px-2.5 py-2 w-14">Dia</th>
                   <th class="px-2.5 py-2 w-16 text-center">Rolls</th>
                   <th class="px-2.5 py-2 w-24 text-right">Weight (Kg)</th>
-                  <th class="px-2.5 py-2 w-24 text-right">Balance</th>
+                  <th class="px-2.5 py-2 w-24 text-right">Balance (Kg)</th>
                   <th class="px-2.5 py-2 w-10 text-center">?</th>
                 </tr>
               </thead>
@@ -1101,7 +1118,7 @@
                           <td class="p-2 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">{item.weight_kg}</td>
                           {#if itemIdx === 0}
                             <td rowspan={record.items.length} class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400 align-top bg-slate-50/30 dark:bg-neutral-900/30">
-                              {getDeliveredBalance(record)} kg
+                              {getDeliveredBalance(record)}
                             </td>
                             <td rowspan={record.items.length} class="p-2 text-center align-middle bg-slate-50/30 dark:bg-neutral-900/30">
                               <div class="relative inline-block text-left" role="presentation" onmouseleave={() => (activePopover = null)}>
@@ -1171,7 +1188,7 @@
                         <td class="p-2 font-semibold">{record.dia}</td>
                         <td class="p-2 text-center font-mono">{record.rolls}</td>
                         <td class="p-2 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">{record.weight_kg}</td>
-                        <td class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400">{getDeliveredBalance(record)} kg</td>
+                        <td class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400">{getDeliveredBalance(record)}</td>
                         <td class="p-2 text-center">
                           <div class="relative inline-block text-left" role="presentation" onmouseleave={() => (activePopover = null)}>
                             <button
@@ -1329,15 +1346,14 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label for="rx-popup-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Date *</label>
-            <input
+            <DateInput
               id="rx-popup-date"
-              type="date"
               bind:value={rxDate}
-              class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+              class="bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 p-2 text-xs"
             />
           </div>
           <div>
-            <label for="rx-popup-ch" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">CH No.</label>
+            <label for="rx-popup-ch" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Challan</label>
             <input
               id="rx-popup-ch"
               type="text"
@@ -1352,7 +1368,7 @@
         <div class="space-y-2">
           <div class="flex items-center justify-between font-bold text-slate-700 dark:text-slate-300">
             <span>Yarn Items</span>
-            <span class="text-[11px] text-blue-600 dark:text-blue-400 font-mono">Total: {rxTotalBags} Bags | {rxTotalWeight} Kg | Balance: {(currentClientBalance + rxTotalWeight).toFixed(2)} Kg</span>
+            <span class="text-[11px] text-blue-600 dark:text-blue-400 font-mono">Total: {rxTotalBags} Bags | {rxTotalWeight} Kg</span>
           </div>
 
           <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -1427,15 +1443,14 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label for="dx-popup-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Date *</label>
-            <input
+            <DateInput
               id="dx-popup-date"
-              type="date"
               bind:value={dxDate}
-              class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+              class="bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 p-2 text-xs"
             />
           </div>
           <div>
-            <label for="dx-popup-ch" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">CH No.</label>
+            <label for="dx-popup-ch" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Challan</label>
             <input
               id="dx-popup-ch"
               type="text"
@@ -1450,7 +1465,7 @@
         <div class="space-y-2">
           <div class="flex items-center justify-between font-bold text-slate-700 dark:text-slate-300">
             <span>Yarn Items</span>
-            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono">Total: {dxTotalRolls} Rolls | {dxTotalWeight} Kg | Balance: {(currentClientBalance - dxTotalWeight).toFixed(2)} Kg</span>
+            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono">Total: {dxTotalRolls} Rolls | {dxTotalWeight} Kg</span>
           </div>
 
           <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -1562,15 +1577,14 @@
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label for="edit-rx-date" class="block font-bold text-slate-500 mb-1">Date</label>
-        <input
+        <DateInput
           id="edit-rx-date"
-          type="date"
           bind:value={editingReceived.date}
-          class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+          class="bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 p-2 text-xs"
         />
       </div>
       <div>
-        <label for="edit-rx-ch" class="block font-bold text-slate-500 mb-1">CH No.</label>
+        <label for="edit-rx-ch" class="block font-bold text-slate-500 mb-1">Challan</label>
         <input
           id="edit-rx-ch"
           type="text"
@@ -1585,7 +1599,7 @@
         <div class="flex items-center gap-3">
           <span>Yarn Items</span>
           <span class="text-[11px] text-amber-600 dark:text-amber-400 font-mono font-bold">
-            Total Weight: {Number(editingReceived.items.reduce((acc, i) => acc + (i.weight_kg ? Number(i.weight_kg) : 0), 0).toFixed(2))} Kg | Balance: {(currentClientBalance + Number(editingReceived.items.reduce((acc, i) => acc + (i.weight_kg ? Number(i.weight_kg) : 0), 0).toFixed(2))).toFixed(2)} Kg
+            Total Weight: {Number(editingReceived.items.reduce((acc, i) => acc + (i.weight_kg ? Number(i.weight_kg) : 0), 0).toFixed(2))} Kg
           </span>
         </div>
         <button
@@ -1661,21 +1675,19 @@
     <div class="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-neutral-800 p-3 rounded-xl">
       <div>
         <label for="summary-start-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Start Date</label>
-        <input
+        <DateInput
           id="summary-start-date"
-          type="date"
           bind:value={summaryStartDate}
-          class="w-full bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+          class="bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 p-2 text-xs"
         />
       </div>
 
       <div>
         <label for="summary-end-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">End Date</label>
-        <input
+        <DateInput
           id="summary-end-date"
-          type="date"
           bind:value={summaryEndDate}
-          class="w-full bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+          class="bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 p-2 text-xs"
         />
       </div>
     </div>
@@ -1717,21 +1729,19 @@
     <div class="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-neutral-800 p-3 rounded-xl">
       <div>
         <label for="stmt-start-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Start Date</label>
-        <input
+        <DateInput
           id="stmt-start-date"
-          type="date"
           bind:value={statementStartDate}
-          class="w-full bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+          class="bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 p-2 text-xs"
         />
       </div>
 
       <div>
         <label for="stmt-end-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">End Date</label>
-        <input
+        <DateInput
           id="stmt-end-date"
-          type="date"
           bind:value={statementEndDate}
-          class="w-full bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+          class="bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 p-2 text-xs"
         />
       </div>
     </div>
@@ -1778,24 +1788,25 @@
 <!-- PRINT-ONLY STATEMENT CHART (A4 LANDSCAPE, MINIMAL DESIGN) -->
 {#if selectedClient}
   <div class="hidden print:block statement-print-area text-black font-sans w-full">
+    <!-- First Page Only Company Headline Banner -->
+    <div class="text-center border-b-2 border-black pb-1 mb-1 space-y-0.5">
+      <h1 class="text-3xl font-extrabold tracking-tight text-black m-0 leading-tight uppercase">
+        M/S A.B.S Knit Fabrics
+      </h1>
+      <div class="text-[11px] font-semibold text-neutral-800 tracking-wide uppercase">
+        100% Export Oriented Knitting Factory
+      </div>
+      <div class="text-[9px] text-neutral-600 font-normal">
+        Plot Number B-7, Bscic I/A, Fatullah, Narayanganj. Mobile: 01681068707
+      </div>
+    </div>
+
     <table class="w-full border-collapse">
-      <!-- Main Headline Header (Repeated on every page in print) -->
+      <!-- Client & Date Range Header (Repeated on every page in print) -->
       <thead>
         <tr>
           <th class="font-normal text-left p-0 pb-1">
             <div class="statement-print-header w-full">
-              <div class="text-center border-b-2 border-black pb-1 mb-1 space-y-0.5">
-                <h1 class="text-3xl font-extrabold tracking-tight text-black m-0 leading-tight uppercase">
-                  M/S A.B.S Knit Fabrics
-                </h1>
-                <div class="text-[11px] font-semibold text-neutral-800 tracking-wide uppercase">
-                  100% Export Oriented Knitting Factory
-                </div>
-                <div class="text-[9px] text-neutral-600 font-normal">
-                  Plot Number B-7, Bscic I/A, Fatullah, Narayanganj. Mobile: 01681068707
-                </div>
-              </div>
-
               <div class="border-b border-black pb-1 flex items-baseline justify-between text-xs">
                 <div>
                   <span class="text-[9px] uppercase tracking-wider text-neutral-600 block font-semibold">Client Statement</span>
@@ -1803,7 +1814,6 @@
                 </div>
                 <div class="text-right text-xs text-black font-mono">
                   <div><span class="font-bold">Date Range:</span> {formatDateDMY(statementStartDate)} &mdash; {formatDateDMY(statementEndDate)}</div>
-                  <div><span class="font-bold">Net Balance:</span> {Number((statementRxTotalWeight - statementDxTotalWeight).toFixed(2))} Kg</div>
                 </div>
               </div>
             </div>
@@ -1826,7 +1836,7 @@
           <thead>
             <tr class="border-b border-black font-bold bg-neutral-50">
               <th class="p-1 border-r border-neutral-300">Date</th>
-              <th class="p-1 border-r border-neutral-300">CH No.</th>
+              <th class="p-1 border-r border-neutral-300">Challan</th>
               <th class="p-1 border-r border-neutral-300">Yarn Count</th>
               <th class="p-1 border-r border-neutral-300 text-center">Bags</th>
               <th class="p-1 text-right">Weight (Kg)</th>
@@ -1882,7 +1892,7 @@
           <thead>
             <tr class="border-b border-black font-bold bg-neutral-50">
               <th class="p-1 border-r border-neutral-300">Date</th>
-              <th class="p-1 border-r border-neutral-300">CH No.</th>
+              <th class="p-1 border-r border-neutral-300">Challan</th>
               <th class="p-1 border-r border-neutral-300">Yarn Count</th>
               <th class="p-1 border-r border-neutral-300">Dia</th>
               <th class="p-1 border-r border-neutral-300 text-center">Rolls</th>
@@ -1949,15 +1959,14 @@
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label for="edit-dx-date" class="block font-bold text-slate-500 mb-1">Date</label>
-        <input
+        <DateInput
           id="edit-dx-date"
-          type="date"
           bind:value={editingDelivered.date}
-          class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+          class="bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 p-2 text-xs"
         />
       </div>
       <div>
-        <label for="edit-dx-ch" class="block font-bold text-slate-500 mb-1">CH No.</label>
+        <label for="edit-dx-ch" class="block font-bold text-slate-500 mb-1">Challan</label>
         <input
           id="edit-dx-ch"
           type="text"

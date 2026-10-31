@@ -19,6 +19,7 @@
   };
 
   let nameFilter = $state('');
+  let challanFilter = $state('');
   let yarnFilter = $state('');
   let diaFilter = $state('');
   let dateFilter = $state('');
@@ -382,6 +383,14 @@
       logs = logs.filter((log) => log.client_name.toLowerCase().includes(q));
     }
 
+    if (challanFilter.trim()) {
+      const c = challanFilter.toLowerCase().trim();
+      logs = logs.filter((log) => {
+        const ch = log.rawRecord.ch_no;
+        return ch && ch.toLowerCase().includes(c);
+      });
+    }
+
     if (yarnFilter.trim()) {
       const y = yarnFilter.toLowerCase().trim();
       logs = logs.filter((log) => {
@@ -416,7 +425,7 @@
   // Reset displayedCount whenever filters change
   $effect(() => {
     // Access filter states to create reactivity dependency
-    nameFilter; yarnFilter; diaFilter; dateFilter; typeFilter;
+    nameFilter; challanFilter; yarnFilter; diaFilter; dateFilter; typeFilter;
     displayedCount = BATCH_SIZE;
   });
 
@@ -448,8 +457,31 @@
   function generateExcelForClientRecords(clientName: string, logs: AuditLogEntry[]) {
     const rows: any[] = [];
 
+    // Sort logs chronologically ascending (oldest first) to compute running balance
+    const sortedLogs = [...logs].sort((a, b) => {
+      if (a.date !== b.date) {
+        return a.date.localeCompare(b.date);
+      }
+      return new Date(a.rawRecord.timestamp).getTime() - new Date(b.rawRecord.timestamp).getTime();
+    });
+
+    let runningBalance = 0;
+    const balanceMap = new Map<AuditLogEntry, number>();
+
+    sortedLogs.forEach((log) => {
+      const totalWeight = Number(log.rawRecord.total_weight_kg || log.rawRecord.weight_kg || 0);
+      if (log.type === 'Received') {
+        runningBalance += totalWeight;
+      } else {
+        runningBalance -= totalWeight;
+      }
+      balanceMap.set(log, Number(runningBalance.toFixed(2)));
+    });
+
+    // Output logs in user's audit log order (descending by timestamp)
     logs.forEach((log) => {
       const rec = log.rawRecord;
+      const bal = balanceMap.get(log) ?? 0;
       const items = rec.items && rec.items.length > 0
         ? rec.items
         : [{
@@ -466,13 +498,14 @@
           'Time': itemIdx === 0 ? log.time : '',
           'Client': itemIdx === 0 ? log.client_name : '',
           'Type': itemIdx === 0 ? log.type : '',
-          'CH No.': itemIdx === 0 ? (rec.ch_no || '-') : '',
+          'Challan': itemIdx === 0 ? (rec.ch_no || '-') : '',
           'Yarn Count': item.yarn_count || '-',
           'Dia': 'dia' in item && (item as any).dia ? (item as any).dia : ('dia' in rec ? rec.dia : '-'),
           'Bags': 'bags' in item && item.bags !== undefined ? item.bags : ('bags' in rec ? rec.bags : '-'),
           'Rolls': 'rolls' in item && item.rolls !== undefined ? item.rolls : ('rolls' in rec ? rec.rolls : '-'),
           'Item Weight (Kg)': item.weight_kg,
-          'Total Weight (Kg)': itemIdx === 0 ? (rec.total_weight_kg || rec.weight_kg) : ''
+          'Total Weight (Kg)': itemIdx === 0 ? (rec.total_weight_kg || rec.weight_kg) : '',
+          'Balance (Kg)': itemIdx === 0 ? bal : ''
         });
       });
     });
@@ -557,6 +590,16 @@
         />
       </div>
 
+      <!-- Challan Filter Text Input -->
+      <div class="md:col-span-2">
+        <Input
+          type="text"
+          placeholder="Filter by Challan..."
+          bind:value={challanFilter}
+          class="h-8 text-xs bg-slate-50 dark:bg-neutral-800 border-none"
+        />
+      </div>
+
       <!-- Yarn Type Filter Text Input -->
       <div class="md:col-span-2">
         <Input
@@ -568,10 +611,10 @@
       </div>
 
       <!-- Dia Filter Text Input -->
-      <div class="md:col-span-2">
+      <div class="md:col-span-1">
         <Input
           type="text"
-          placeholder="Filter by Dia..."
+          placeholder="Dia..."
           bind:value={diaFilter}
           class="h-8 text-xs bg-slate-50 dark:bg-neutral-800 border-none"
         />
@@ -626,6 +669,7 @@
           size="sm"
           onclick={() => {
             nameFilter = '';
+            challanFilter = '';
             yarnFilter = '';
             diaFilter = '';
             dateFilter = '';
@@ -654,7 +698,7 @@
               <th class="py-2.5 px-3 w-28">Date & Time</th>
               <th class="py-2.5 px-3">Client Name</th>
               <th class="py-2.5 px-3 w-20">Type</th>
-              <th class="py-2.5 px-3 w-20">CH No.</th>
+              <th class="py-2.5 px-3 w-20">Challan</th>
               <th class="py-2.5 px-3">Challan Items Breakdown</th>
               <th class="py-2.5 px-3 w-24 text-right">Total Weight</th>
               <th class="py-2.5 px-3 w-16 text-center">Action</th>
@@ -689,7 +733,7 @@
                   {/if}
                 </td>
 
-                <!-- CH No. -->
+                <!-- Challan -->
                 <td class="p-3 align-top font-semibold text-slate-800 dark:text-slate-200">
                   {rec.ch_no || '-'}
                 </td>
@@ -1019,7 +1063,7 @@
       <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-neutral-800">
         <div>
           <h3 class="font-bold text-base text-slate-900 dark:text-white">{selectedRecord.client_name}</h3>
-          <p class="text-xs text-slate-400">{formatDateDMY(selectedRecord.date)} at {selectedRecord.time} | CH No. {rec.ch_no}</p>
+          <p class="text-xs text-slate-400">{formatDateDMY(selectedRecord.date)} at {selectedRecord.time} | Challan: {rec.ch_no}</p>
         </div>
         {#if selectedRecord.type === 'Received'}
           <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400">
