@@ -3,6 +3,8 @@
   import { fade } from 'svelte/transition';
   import {
     db,
+    dbAdapter,
+    isTauri,
     seedInitialData,
     type Client,
     type ReceivedRecord,
@@ -140,6 +142,7 @@
 
   let rxDate = $state(getTodayString());
   let rxChNo = $state('');
+  let rxBalanceKg = $state<number | undefined>(undefined);
   let rxItems = $state<RxDraftItem[]>([
     { yarn_count: '', bags: undefined, weight_kg: undefined }
   ]);
@@ -164,40 +167,18 @@
     )
   );
 
-  function getReceivedBalance(record: ReceivedRecord): number {
-    const rxSum = todayReceivedList.reduce((sum, rx) => {
-      if (rx.date < record.date || (rx.date === record.date && rx.timestamp <= record.timestamp)) {
-        return sum + Number(rx.total_weight_kg || rx.weight_kg || 0);
-      }
-      return sum;
-    }, 0);
-
-    const dxSum = todayDeliveredList.reduce((sum, dx) => {
-      if (dx.date < record.date || (dx.date === record.date && dx.timestamp <= record.timestamp)) {
-        return sum + Number(dx.total_weight_kg || dx.weight_kg || 0);
-      }
-      return sum;
-    }, 0);
-
-    return Number((rxSum - dxSum).toFixed(2));
+  function getReceivedBalance(record: ReceivedRecord): number | string {
+    if (record.balance_kg !== undefined && record.balance_kg !== null && !isNaN(Number(record.balance_kg))) {
+      return Number(record.balance_kg);
+    }
+    return '-';
   }
 
-  function getDeliveredBalance(record: DeliveredRecord): number {
-    const rxSum = todayReceivedList.reduce((sum, rx) => {
-      if (rx.date < record.date || (rx.date === record.date && rx.timestamp <= record.timestamp)) {
-        return sum + Number(rx.total_weight_kg || rx.weight_kg || 0);
-      }
-      return sum;
-    }, 0);
-
-    const dxSum = todayDeliveredList.reduce((sum, dx) => {
-      if (dx.date < record.date || (dx.date === record.date && dx.timestamp <= record.timestamp)) {
-        return sum + Number(dx.total_weight_kg || dx.weight_kg || 0);
-      }
-      return sum;
-    }, 0);
-
-    return Number((rxSum - dxSum).toFixed(2));
+  function getDeliveredBalance(record: DeliveredRecord): number | string {
+    if (record.balance_kg !== undefined && record.balance_kg !== null && !isNaN(Number(record.balance_kg))) {
+      return Number(record.balance_kg);
+    }
+    return '-';
   }
 
   // Right Bar Tooltip Hover state
@@ -211,9 +192,11 @@
     addEntryMode = 'received';
     rxDate = getTodayString();
     rxChNo = '';
+    rxBalanceKg = undefined;
     rxItems = [{ yarn_count: '', bags: undefined, weight_kg: undefined }];
     dxDate = getTodayString();
     dxChNo = '';
+    dxBalanceKg = undefined;
     dxItems = [{ yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined }];
     isAddModalOpen = true;
   }
@@ -242,9 +225,17 @@
       onConfirm: async () => {
         confirmModal.open = false;
         if (type === 'received') {
-          await db.receivedRecords.delete(id);
+          if (isTauri()) {
+            await dbAdapter.deleteReceivedRecord(id);
+          } else {
+            await db.receivedRecords.delete(id);
+          }
         } else {
-          await db.deliveredRecords.delete(id);
+          if (isTauri()) {
+            await dbAdapter.deleteDeliveredRecord(id);
+          } else {
+            await db.deliveredRecords.delete(id);
+          }
         }
         if (selectedClient?.id) {
           await loadClientRecords(selectedClient.id);
@@ -260,11 +251,13 @@
     id?: number;
     date: string;
     ch_no: string;
+    balance_kg?: number;
     items: { yarn_count: string; bags: number | undefined; weight_kg: number | undefined }[];
   }>({
     open: false,
     date: '',
     ch_no: '',
+    balance_kg: undefined,
     items: []
   });
 
@@ -279,6 +272,7 @@
       id: record.id,
       date: record.date,
       ch_no: record.ch_no,
+      balance_kg: record.balance_kg,
       items
     };
   }
@@ -294,26 +288,44 @@
     );
 
     const first = validItems[0];
-    const existing = await db.receivedRecords.get(editingReceived.id);
+    const itemsArray = validItems.map(i => ({
+      yarn_count: i.yarn_count.trim() || '-',
+      bags: Number(i.bags) || 0,
+      weight_kg: Number(i.weight_kg)
+    }));
 
-    await db.receivedRecords.put({
-      ...existing,
-      id: editingReceived.id,
-      client_id: selectedClient.id,
-      client_name: selectedClient.name,
-      date: editingReceived.date,
-      ch_no: editingReceived.ch_no.trim() || '-',
-      yarn_count: first.yarn_count.trim() || '-',
-      bags: totalBagsSum,
-      weight_kg: totalWeightSum,
-      total_weight_kg: totalWeightSum,
-      items: validItems.map(i => ({
-        yarn_count: i.yarn_count.trim() || '-',
-        bags: Number(i.bags) || 0,
-        weight_kg: Number(i.weight_kg)
-      })),
-      timestamp: existing?.timestamp || new Date().toISOString()
-    });
+    const balanceVal = editingReceived.balance_kg !== undefined && editingReceived.balance_kg !== null && !isNaN(Number(editingReceived.balance_kg))
+      ? Number(editingReceived.balance_kg)
+      : undefined;
+
+    if (isTauri()) {
+      await dbAdapter.updateReceivedRecord(editingReceived.id, {
+        date: editingReceived.date,
+        ch_no: editingReceived.ch_no.trim() || '-',
+        yarn_count: first.yarn_count.trim() || '-',
+        bags: totalBagsSum,
+        weight_kg: totalWeightSum,
+        total_weight_kg: totalWeightSum,
+        balance_kg: balanceVal
+      });
+    } else {
+      const existing = await db.receivedRecords.get(editingReceived.id);
+      await db.receivedRecords.put({
+        ...existing,
+        id: editingReceived.id,
+        client_id: selectedClient.id,
+        client_name: selectedClient.name,
+        date: editingReceived.date,
+        ch_no: editingReceived.ch_no.trim() || '-',
+        yarn_count: first.yarn_count.trim() || '-',
+        bags: totalBagsSum,
+        weight_kg: totalWeightSum,
+        total_weight_kg: totalWeightSum,
+        balance_kg: balanceVal,
+        items: itemsArray,
+        timestamp: existing?.timestamp || new Date().toISOString()
+      });
+    }
 
     editingReceived.open = false;
     await loadClientRecords(selectedClient.id);
@@ -326,11 +338,13 @@
     id?: number;
     date: string;
     ch_no: string;
+    balance_kg?: number;
     items: { yarn_count: string; dia: string; rolls: number | undefined; weight_kg: number | undefined }[];
   }>({
     open: false,
     date: '',
     ch_no: '',
+    balance_kg: undefined,
     items: []
   });
 
@@ -345,6 +359,7 @@
       id: record.id,
       date: record.date,
       ch_no: record.ch_no,
+      balance_kg: record.balance_kg,
       items
     };
   }
@@ -360,28 +375,47 @@
     );
 
     const first = validItems[0];
-    const existing = await db.deliveredRecords.get(editingDelivered.id);
+    const itemsArray = validItems.map(i => ({
+      yarn_count: i.yarn_count.trim() || '-',
+      dia: i.dia.trim() || '-',
+      rolls: Number(i.rolls) || 0,
+      weight_kg: Number(i.weight_kg)
+    }));
 
-    await db.deliveredRecords.put({
-      ...existing,
-      id: editingDelivered.id,
-      client_id: selectedClient.id,
-      client_name: selectedClient.name,
-      date: editingDelivered.date,
-      ch_no: editingDelivered.ch_no.trim() || '-',
-      yarn_count: first.yarn_count.trim() || '-',
-      dia: first.dia.trim() || '-',
-      rolls: totalRollsSum,
-      weight_kg: totalWeightSum,
-      total_weight_kg: totalWeightSum,
-      items: validItems.map(i => ({
-        yarn_count: i.yarn_count.trim() || '-',
-        dia: i.dia.trim() || '-',
-        rolls: Number(i.rolls) || 0,
-        weight_kg: Number(i.weight_kg)
-      })),
-      timestamp: existing?.timestamp || new Date().toISOString()
-    });
+    const balanceVal = editingDelivered.balance_kg !== undefined && editingDelivered.balance_kg !== null && !isNaN(Number(editingDelivered.balance_kg))
+      ? Number(editingDelivered.balance_kg)
+      : undefined;
+
+    if (isTauri()) {
+      await dbAdapter.updateDeliveredRecord(editingDelivered.id, {
+        date: editingDelivered.date,
+        ch_no: editingDelivered.ch_no.trim() || '-',
+        yarn_count: first.yarn_count.trim() || '-',
+        dia: first.dia.trim() || '-',
+        rolls: totalRollsSum,
+        weight_kg: totalWeightSum,
+        total_weight_kg: totalWeightSum,
+        balance_kg: balanceVal
+      });
+    } else {
+      const existing = await db.deliveredRecords.get(editingDelivered.id);
+      await db.deliveredRecords.put({
+        ...existing,
+        id: editingDelivered.id,
+        client_id: selectedClient.id,
+        client_name: selectedClient.name,
+        date: editingDelivered.date,
+        ch_no: editingDelivered.ch_no.trim() || '-',
+        yarn_count: first.yarn_count.trim() || '-',
+        dia: first.dia.trim() || '-',
+        rolls: totalRollsSum,
+        weight_kg: totalWeightSum,
+        total_weight_kg: totalWeightSum,
+        balance_kg: balanceVal,
+        items: itemsArray,
+        timestamp: existing?.timestamp || new Date().toISOString()
+      });
+    }
 
     editingDelivered.open = false;
     await loadClientRecords(selectedClient.id);
@@ -391,6 +425,7 @@
   // Multi-item delivered form state
   let dxDate = $state(getTodayString());
   let dxChNo = $state('');
+  let dxBalanceKg = $state<number | undefined>(undefined);
   let dxItems = $state<DxDraftItem[]>([
     { yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined }
   ]);
@@ -456,10 +491,23 @@
 
   async function loadClientRecords(clientId: number) {
     // Sort primarily by date ascending (oldest date on top, newest date on bottom), then by timestamp ascending
-    const rx = await db.receivedRecords
-      .where('client_id')
-      .equals(clientId)
-      .toArray();
+    let rx: ReceivedRecord[] = [];
+    let dx: DeliveredRecord[] = [];
+
+    if (isTauri()) {
+      rx = await dbAdapter.getReceivedRecords(clientId);
+      dx = await dbAdapter.getDeliveredRecords(clientId);
+    } else {
+      rx = await db.receivedRecords
+        .where('client_id')
+        .equals(clientId)
+        .toArray();
+
+      dx = await db.deliveredRecords
+        .where('client_id')
+        .equals(clientId)
+        .toArray();
+    }
 
     rx.sort((a, b) => {
       if (a.date !== b.date) {
@@ -468,13 +516,6 @@
       return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
     });
 
-    todayReceivedList = rx;
-
-    const dx = await db.deliveredRecords
-      .where('client_id')
-      .equals(clientId)
-      .toArray();
-
     dx.sort((a, b) => {
       if (a.date !== b.date) {
         return a.date.localeCompare(b.date);
@@ -482,6 +523,7 @@
       return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
     });
 
+    todayReceivedList = rx;
     todayDeliveredList = dx;
     scrollTallyToBottom();
   }
@@ -526,7 +568,7 @@
       weight_kg: Number(i.weight_kg)
     }));
 
-    await db.receivedRecords.add({
+    const newRecord: ReceivedRecord = {
       client_id: selectedClient.id,
       client_name: selectedClient.name,
       date: rxDate || getTodayString(),
@@ -535,12 +577,20 @@
       bags: totalBagsSum,
       weight_kg: totalWeightSum,
       total_weight_kg: totalWeightSum,
+      balance_kg: rxBalanceKg !== undefined && rxBalanceKg !== null && !isNaN(Number(rxBalanceKg)) ? Number(rxBalanceKg) : undefined,
       items: itemsArray,
       timestamp: new Date().toISOString()
-    });
+    };
+
+    if (isTauri()) {
+      await dbAdapter.addReceivedRecord(newRecord);
+    } else {
+      await db.receivedRecords.add(newRecord);
+    }
 
     // Reset inputs
     rxChNo = '';
+    rxBalanceKg = undefined;
     rxItems = [{ yarn_count: '', bags: undefined, weight_kg: undefined }];
     isAddModalOpen = false;
 
@@ -568,7 +618,7 @@
       weight_kg: Number(i.weight_kg)
     }));
 
-    await db.deliveredRecords.add({
+    const newRecord: DeliveredRecord = {
       client_id: selectedClient.id,
       client_name: selectedClient.name,
       date: dxDate || getTodayString(),
@@ -578,12 +628,20 @@
       rolls: totalRollsSum,
       weight_kg: totalWeightSum,
       total_weight_kg: totalWeightSum,
+      balance_kg: dxBalanceKg !== undefined && dxBalanceKg !== null && !isNaN(Number(dxBalanceKg)) ? Number(dxBalanceKg) : undefined,
       items: itemsArray,
       timestamp: new Date().toISOString()
-    });
+    };
+
+    if (isTauri()) {
+      await dbAdapter.addDeliveredRecord(newRecord);
+    } else {
+      await db.deliveredRecords.add(newRecord);
+    }
 
     // Reset inputs
     dxChNo = '';
+    dxBalanceKg = undefined;
     dxItems = [{ yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined }];
     isAddModalOpen = false;
 
@@ -1342,8 +1400,8 @@
     {#if addEntryMode === 'received'}
       <!-- RECEIVED FORM -->
       <div class="space-y-3">
-        <!-- Date & CH No -->
-        <div class="grid grid-cols-2 gap-3">
+        <!-- Date, CH No & Balance -->
+        <div class="grid grid-cols-3 gap-3">
           <div>
             <label for="rx-popup-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Date *</label>
             <DateInput
@@ -1360,6 +1418,17 @@
               bind:value={rxChNo}
               placeholder="e.g. 1042"
               class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+            />
+          </div>
+          <div>
+            <label for="rx-popup-balance" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Balance (Kg)</label>
+            <input
+              id="rx-popup-balance"
+              type="number"
+              step="0.01"
+              bind:value={rxBalanceKg}
+              placeholder="Manual Balance"
+              class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs font-mono font-bold text-amber-600 dark:text-amber-400"
             />
           </div>
         </div>
@@ -1439,8 +1508,8 @@
     {:else}
       <!-- DELIVERED FORM -->
       <div class="space-y-3">
-        <!-- Date & CH No -->
-        <div class="grid grid-cols-2 gap-3">
+        <!-- Date, CH No & Balance -->
+        <div class="grid grid-cols-3 gap-3">
           <div>
             <label for="dx-popup-date" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Date *</label>
             <DateInput
@@ -1457,6 +1526,17 @@
               bind:value={dxChNo}
               placeholder="e.g. 5021"
               class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+            />
+          </div>
+          <div>
+            <label for="dx-popup-balance" class="block font-bold text-slate-700 dark:text-neutral-300 mb-1">Balance (Kg)</label>
+            <input
+              id="dx-popup-balance"
+              type="number"
+              step="0.01"
+              bind:value={dxBalanceKg}
+              placeholder="Manual Balance"
+              class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs font-mono font-bold text-amber-600 dark:text-amber-400"
             />
           </div>
         </div>
@@ -1574,7 +1654,7 @@
 <!-- EDIT RECEIVED RECORD POPUP -->
 <Dialog open={editingReceived.open} onclose={() => (editingReceived.open = false)} title="Edit Received Entry" maxWidth="max-w-lg">
   <div class="space-y-4 text-xs">
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-3 gap-3">
       <div>
         <label for="edit-rx-date" class="block font-bold text-slate-500 mb-1">Date</label>
         <DateInput
@@ -1590,6 +1670,17 @@
           type="text"
           bind:value={editingReceived.ch_no}
           class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+        />
+      </div>
+      <div>
+        <label for="edit-rx-balance" class="block font-bold text-slate-500 mb-1">Balance (Kg)</label>
+        <input
+          id="edit-rx-balance"
+          type="number"
+          step="0.01"
+          bind:value={editingReceived.balance_kg}
+          placeholder="Manual Balance"
+          class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs font-mono font-bold text-amber-600 dark:text-amber-400"
         />
       </div>
     </div>
@@ -1956,7 +2047,7 @@
 <!-- EDIT DELIVERED RECORD POPUP -->
 <Dialog open={editingDelivered.open} onclose={() => (editingDelivered.open = false)} title="Edit Delivered Entry" maxWidth="max-w-xl">
   <div class="space-y-4 text-xs">
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-3 gap-3">
       <div>
         <label for="edit-dx-date" class="block font-bold text-slate-500 mb-1">Date</label>
         <DateInput
@@ -1972,6 +2063,17 @@
           type="text"
           bind:value={editingDelivered.ch_no}
           class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs"
+        />
+      </div>
+      <div>
+        <label for="edit-dx-balance" class="block font-bold text-slate-500 mb-1">Balance (Kg)</label>
+        <input
+          id="edit-dx-balance"
+          type="number"
+          step="0.01"
+          bind:value={editingDelivered.balance_kg}
+          placeholder="Manual Balance"
+          class="w-full bg-slate-50 dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-2 text-xs font-mono font-bold text-amber-600 dark:text-amber-400"
         />
       </div>
     </div>
