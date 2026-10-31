@@ -41,6 +41,7 @@ export interface ReceivedRecord {
   bags: number;
   weight_kg: number; // Weight in Kg
   total_weight_kg: number; // Total weight in Kg
+  balance_kg?: number; // Manual balance in Kg
   items?: ReceivedYarnItem[];
   timestamp: string; // ISO string
 }
@@ -56,6 +57,7 @@ export interface DeliveredRecord {
   rolls: number;
   weight_kg: number; // Weight in Kg
   total_weight_kg: number; // Total weight in Kg
+  balance_kg?: number; // Manual balance in Kg
   items?: DeliveredYarnItem[];
   timestamp: string; // ISO string
 }

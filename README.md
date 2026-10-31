@@ -20,7 +20,6 @@ Built with **Svelte 5**, **TypeScript**, **Tailwind CSS v4**, and **Dexie Indexe
 
 2. **Data Management (Add Screen)**
    - Manage registered **Clients**, **Yarn Types**, and **Dias**.
-   - **Mock Data Generator**: Generate 8 months worth of historical tally records in one click for 7 default clients (`A&Z Knit Fabrics`, `A.B. Knitting`, `K.S.T. Knitting`, `New Somrat`, `Ruhul Knit`, `Saiful & Brothers`, `TOP Enterprises`).
    - Color-filled action buttons and input validation with duplicate checks.
 
 3. **All Records & Audit Logs (Records Screen)**

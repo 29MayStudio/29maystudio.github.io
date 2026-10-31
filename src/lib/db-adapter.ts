@@ -65,6 +65,7 @@ async function getSqliteDB(): Promise<Database> {
         bags REAL,
         weight_kg REAL,
         total_weight_kg REAL,
+        balance_kg REAL,
         items TEXT,
         timestamp TEXT
       );
@@ -80,6 +81,7 @@ async function getSqliteDB(): Promise<Database> {
         rolls REAL,
         weight_kg REAL,
         total_weight_kg REAL,
+        balance_kg REAL,
         items TEXT,
         timestamp TEXT
       );
@@ -151,17 +153,129 @@ export const dbAdapter = {
       const s = await getSqliteDB();
       const res = await s.execute(
         `INSERT INTO received_records
-        (client_id, client_name, date, ch_no, yarn_count, lot, bags, weight_kg, total_weight_kg, items, timestamp)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        (client_id, client_name, date, ch_no, yarn_count, lot, bags, weight_kg, total_weight_kg, balance_kg, items, timestamp)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           record.client_id, record.client_name, record.date, record.ch_no,
           record.yarn_count, '', record.bags, record.weight_kg,
-          record.total_weight_kg, JSON.stringify(record.items || []), record.timestamp
+          record.total_weight_kg, record.balance_kg ?? null, JSON.stringify(record.items || []), record.timestamp
         ]
       );
       return res.lastInsertId ?? 0;
     }
     return (await dexieInstance.receivedRecords.add(record)) as number;
+  },
+
+  async updateReceivedRecord(id: number, record: Partial<ReceivedRecord>): Promise<void> {
+    if (isTauri()) {
+      const s = await getSqliteDB();
+      await s.execute(
+        `UPDATE received_records
+         SET date = COALESCE($1, date),
+             ch_no = COALESCE($2, ch_no),
+             yarn_count = COALESCE($3, yarn_count),
+             bags = COALESCE($4, bags),
+             weight_kg = COALESCE($5, weight_kg),
+             total_weight_kg = COALESCE($6, total_weight_kg),
+             balance_kg = COALESCE($7, balance_kg)
+         WHERE id = $8`,
+        [
+          record.date,
+          record.ch_no,
+          record.yarn_count,
+          record.bags,
+          record.weight_kg,
+          record.total_weight_kg,
+          record.balance_kg,
+          id
+        ]
+      );
+      return;
+    }
+    await dexieInstance.receivedRecords.update(id, record);
+  },
+
+  async deleteReceivedRecord(id: number): Promise<void> {
+    if (isTauri()) {
+      const s = await getSqliteDB();
+      await s.execute('DELETE FROM received_records WHERE id = $1', [id]);
+      return;
+    }
+    await dexieInstance.receivedRecords.delete(id);
+  },
+
+  // Delivered Records
+  async getDeliveredRecords(clientId?: number): Promise<DeliveredRecord[]> {
+    if (isTauri()) {
+      const s = await getSqliteDB();
+      const rows = clientId
+        ? await s.select<any[]>('SELECT * FROM delivered_records WHERE client_id = $1 ORDER BY date ASC, timestamp ASC', [clientId])
+        : await s.select<any[]>('SELECT * FROM delivered_records ORDER BY date ASC, timestamp ASC');
+      return rows.map((r) => ({ ...r, items: r.items ? JSON.parse(r.items) : [] }));
+    }
+    let query = dexieInstance.deliveredRecords.toCollection();
+    if (clientId) {
+      return await dexieInstance.deliveredRecords.where('client_id').equals(clientId).toArray();
+    }
+    return await query.toArray();
+  },
+
+  async addDeliveredRecord(record: DeliveredRecord): Promise<number> {
+    if (isTauri()) {
+      const s = await getSqliteDB();
+      const res = await s.execute(
+        `INSERT INTO delivered_records
+        (client_id, client_name, date, ch_no, yarn_count, lot, dia, rolls, weight_kg, total_weight_kg, balance_kg, items, timestamp)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [
+          record.client_id, record.client_name, record.date, record.ch_no,
+          record.yarn_count, '', record.dia, record.rolls, record.weight_kg,
+          record.total_weight_kg, record.balance_kg ?? null, JSON.stringify(record.items || []), record.timestamp
+        ]
+      );
+      return res.lastInsertId ?? 0;
+    }
+    return (await dexieInstance.deliveredRecords.add(record)) as number;
+  },
+
+  async updateDeliveredRecord(id: number, record: Partial<DeliveredRecord>): Promise<void> {
+    if (isTauri()) {
+      const s = await getSqliteDB();
+      await s.execute(
+        `UPDATE delivered_records
+         SET date = COALESCE($1, date),
+             ch_no = COALESCE($2, ch_no),
+             yarn_count = COALESCE($3, yarn_count),
+             dia = COALESCE($4, dia),
+             rolls = COALESCE($5, rolls),
+             weight_kg = COALESCE($6, weight_kg),
+             total_weight_kg = COALESCE($7, total_weight_kg),
+             balance_kg = COALESCE($8, balance_kg)
+         WHERE id = $9`,
+        [
+          record.date,
+          record.ch_no,
+          record.yarn_count,
+          record.dia,
+          record.rolls,
+          record.weight_kg,
+          record.total_weight_kg,
+          record.balance_kg,
+          id
+        ]
+      );
+      return;
+    }
+    await dexieInstance.deliveredRecords.update(id, record);
+  },
+
+  async deleteDeliveredRecord(id: number): Promise<void> {
+    if (isTauri()) {
+      const s = await getSqliteDB();
+      await s.execute('DELETE FROM delivered_records WHERE id = $1', [id]);
+      return;
+    }
+    await dexieInstance.deliveredRecords.delete(id);
   },
 
   // Initial Seeding

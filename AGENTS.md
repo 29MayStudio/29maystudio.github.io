@@ -24,7 +24,6 @@
 
 2. **Data Management (`AddPage.svelte`)**:
    - Add and manage registered Clients, Yarn Types, and Dias.
-   - **Mock Data Generator**: Generate 8 months worth of historical tally data in one click for 7 default clients (`A&Z Knit Fabrics`, `A.B. Knitting`, `K.S.T. Knitting`, `New Somrat`, `Ruhul Knit`, `Saiful & Brothers`, `TOP Enterprises`).
    - Color-filled action buttons and delete confirmations powered by custom modal dialogs.
 
 3. **All Records & Audit Logs (`RecordsPage.svelte`)**:

@@ -204,6 +204,15 @@ h1, h2, h3, h4, h5, h6 {
     break-inside: avoid !important;
   }
 
+  /* Allow the outer container table and its cells to break across pages so tally tables start on page 1 */
+  .statement-print-area > table,
+  .statement-print-area > table > tbody,
+  .statement-print-area > table > tbody > tr,
+  .statement-print-area > table > tbody > tr > td {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
   thead {
     display: table-header-group !important;
   }
