@@ -63,11 +63,12 @@
     onConfirm: () => {}
   });
 
-  function openClientModal() {
+  async function openClientModal() {
     newClientName = '';
     newClientAddress = '';
     clientActionError = '';
     clientActionSuccess = '';
+    await loadRecords();
     isClientModalOpen = true;
   }
 
@@ -311,8 +312,9 @@
     selectedRecord = null;
   }
 
-  function openExcelModal() {
+  async function openExcelModal() {
     selectedExportTarget = 'ALL';
+    await loadRecords();
     isExcelModalOpen = true;
   }
 
