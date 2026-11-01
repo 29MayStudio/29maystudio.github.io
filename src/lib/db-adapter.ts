@@ -77,7 +77,6 @@ async function getSqliteDB(): Promise<Database> {
         ch_no TEXT,
         yarn_count TEXT,
         lot TEXT,
-        dia TEXT,
         rolls REAL,
         weight_kg REAL,
         total_weight_kg REAL,
@@ -123,6 +122,38 @@ export const dbAdapter = {
     return (await dexieInstance.clients.add(client as Client)) as number;
   },
 
+  async updateClient(id: number, client: Partial<Client>): Promise<void> {
+    if (isTauri()) {
+      const s = await getSqliteDB();
+      await s.execute(
+        `UPDATE clients
+         SET name = COALESCE($1, name),
+             phone = COALESCE($2, phone),
+             address = COALESCE($3, address)
+         WHERE id = $4`,
+        [client.name, client.phone, client.address, id]
+      );
+      if (client.name) {
+        await s.execute('UPDATE received_records SET client_name = $1 WHERE client_id = $2', [client.name, id]);
+        await s.execute('UPDATE delivered_records SET client_name = $1 WHERE client_id = $2', [client.name, id]);
+      }
+      return;
+    }
+    await dexieInstance.clients.update(id, client);
+    if (client.name) {
+      const rxRecords = await dexieInstance.receivedRecords.where('client_id').equals(id).toArray();
+      for (const rec of rxRecords) {
+        rec.client_name = client.name;
+        await dexieInstance.receivedRecords.put(JSON.parse(JSON.stringify(rec)));
+      }
+      const dxRecords = await dexieInstance.deliveredRecords.where('client_id').equals(id).toArray();
+      for (const rec of dxRecords) {
+        rec.client_name = client.name;
+        await dexieInstance.deliveredRecords.put(JSON.parse(JSON.stringify(rec)));
+      }
+    }
+  },
+
   async deleteClient(id: number): Promise<void> {
     if (isTauri()) {
       const s = await getSqliteDB();
@@ -130,6 +161,21 @@ export const dbAdapter = {
       return;
     }
     await dexieInstance.clients.delete(id);
+  },
+
+  async getClientRecordsCount(id: number): Promise<{ rxCount: number; dxCount: number }> {
+    if (isTauri()) {
+      const s = await getSqliteDB();
+      const rx = await s.select<any[]>('SELECT COUNT(*) as count FROM received_records WHERE client_id = $1', [id]);
+      const dx = await s.select<any[]>('SELECT COUNT(*) as count FROM delivered_records WHERE client_id = $1', [id]);
+      return {
+        rxCount: rx[0]?.count ?? 0,
+        dxCount: dx[0]?.count ?? 0
+      };
+    }
+    const rxCount = await dexieInstance.receivedRecords.where('client_id').equals(id).count();
+    const dxCount = await dexieInstance.deliveredRecords.where('client_id').equals(id).count();
+    return { rxCount, dxCount };
   },
 
   // Received Records
@@ -225,11 +271,11 @@ export const dbAdapter = {
       const s = await getSqliteDB();
       const res = await s.execute(
         `INSERT INTO delivered_records
-        (client_id, client_name, date, ch_no, yarn_count, lot, dia, rolls, weight_kg, total_weight_kg, balance_kg, items, timestamp)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        (client_id, client_name, date, ch_no, yarn_count, lot, rolls, weight_kg, total_weight_kg, balance_kg, items, timestamp)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           record.client_id, record.client_name, record.date, record.ch_no,
-          record.yarn_count, '', record.dia, record.rolls, record.weight_kg,
+          record.yarn_count, '', record.rolls, record.weight_kg,
           record.total_weight_kg, record.balance_kg ?? null, JSON.stringify(record.items || []), record.timestamp
         ]
       );
@@ -246,17 +292,15 @@ export const dbAdapter = {
          SET date = COALESCE($1, date),
              ch_no = COALESCE($2, ch_no),
              yarn_count = COALESCE($3, yarn_count),
-             dia = COALESCE($4, dia),
-             rolls = COALESCE($5, rolls),
-             weight_kg = COALESCE($6, weight_kg),
-             total_weight_kg = COALESCE($7, total_weight_kg),
-             balance_kg = COALESCE($8, balance_kg)
-         WHERE id = $9`,
+             rolls = COALESCE($4, rolls),
+             weight_kg = COALESCE($5, weight_kg),
+             total_weight_kg = COALESCE($6, total_weight_kg),
+             balance_kg = COALESCE($7, balance_kg)
+         WHERE id = $8`,
         [
           record.date,
           record.ch_no,
           record.yarn_count,
-          record.dia,
           record.rolls,
           record.weight_kg,
           record.total_weight_kg,

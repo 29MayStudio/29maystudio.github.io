@@ -1,13 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { db, type ReceivedRecord, type DeliveredRecord, type Client } from '../db';
+  import { dbAdapter, type ReceivedRecord, type DeliveredRecord, type Client } from '../db';
   import { formatDateDMY } from '../utils';
   import * as XLSX from 'xlsx';
-  import Card from './ui/Card.svelte';
   import Button from './ui/Button.svelte';
   import Input from './ui/Input.svelte';
   import Dialog from './ui/Dialog.svelte';
-  import { Receipt, Search, Eye, X, Download, FileSpreadsheet, Users, UserPlus, Pencil, Trash2, Plus, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-svelte';
+  import { Receipt, Search, Eye, FileSpreadsheet, Users, UserPlus, Pencil, Trash2, Plus, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-svelte';
 
   type AuditLogEntry = {
     id?: number;
@@ -21,7 +20,6 @@
   let nameFilter = $state('');
   let challanFilter = $state('');
   let yarnFilter = $state('');
-  let diaFilter = $state('');
   let dateFilter = $state('');
   let typeFilter = $state<'all' | 'received' | 'delivered'>('all');
 
@@ -90,7 +88,7 @@
       return;
     }
 
-    await db.clients.add({
+    await dbAdapter.addClient({
       name: newClientName.trim(),
       address: newClientAddress.trim() || undefined,
       created_at: new Date().toISOString()
@@ -117,7 +115,6 @@
 
   async function handleSaveEditClient() {
     if (!editingClient.client || !editingClient.client.id) return;
-    const oldName = editingClient.client.name;
     const newName = editingClient.name.trim();
     const newAddress = editingClient.address.trim() || undefined;
 
@@ -134,27 +131,10 @@
       return;
     }
 
-    const updatedClient = {
-      ...editingClient.client,
+    await dbAdapter.updateClient(editingClient.client.id, {
       name: newName,
       address: newAddress
-    };
-
-    await db.clients.put(JSON.parse(JSON.stringify(updatedClient)));
-
-    if (oldName !== newName) {
-      const rxRecords = await db.receivedRecords.where('client_id').equals(editingClient.client.id).toArray();
-      for (const rec of rxRecords) {
-        rec.client_name = newName;
-        await db.receivedRecords.put(JSON.parse(JSON.stringify(rec)));
-      }
-
-      const dxRecords = await db.deliveredRecords.where('client_id').equals(editingClient.client.id).toArray();
-      for (const rec of dxRecords) {
-        rec.client_name = newName;
-        await db.deliveredRecords.put(JSON.parse(JSON.stringify(rec)));
-      }
-    }
+    });
 
     editingClient.open = false;
     clientActionSuccess = 'Client details updated successfully!';
@@ -169,8 +149,7 @@
     clientActionSuccess = '';
 
     // Check if client has data in received or delivered records
-    const rxCount = await db.receivedRecords.where('client_id').equals(client.id).count();
-    const dxCount = await db.deliveredRecords.where('client_id').equals(client.id).count();
+    const { rxCount, dxCount } = await dbAdapter.getClientRecordsCount(client.id);
 
     if (rxCount > 0 || dxCount > 0) {
       clientActionError = `Cannot delete client "${client.name}" because they have existing tally entries (${rxCount} received, ${dxCount} delivered). Deleting clients with data is not allowed to prevent data loss.`;
@@ -183,7 +162,7 @@
       message: `Are you sure you want to delete client "${client.name}"? This action cannot be undone.`,
       onConfirm: async () => {
         confirmModal.open = false;
-        await db.clients.delete(client.id!);
+        await dbAdapter.deleteClient(client.id!);
         clientActionSuccess = `Client "${client.name}" deleted successfully.`;
         await loadRecords();
         window.dispatchEvent(new CustomEvent('db-updated'));
@@ -194,9 +173,30 @@
 
   async function loadRecords() {
     try {
-      receivedList = await db.receivedRecords.orderBy('timestamp').reverse().toArray();
-      deliveredList = await db.deliveredRecords.orderBy('timestamp').reverse().toArray();
-      clientsList = await db.clients.orderBy('name').toArray();
+      const rx = await dbAdapter.getReceivedRecords();
+      const dx = await dbAdapter.getDeliveredRecords();
+      const cl = await dbAdapter.getAllClients();
+
+      // Sort descending by date, tie-breaking by timestamp
+      rx.sort((a, b) => {
+        if (a.date !== b.date) {
+          return b.date.localeCompare(a.date);
+        }
+        return (new Date(b.timestamp).getTime() || 0) - (new Date(a.timestamp).getTime() || 0);
+      });
+
+      dx.sort((a, b) => {
+        if (a.date !== b.date) {
+          return b.date.localeCompare(a.date);
+        }
+        return (new Date(b.timestamp).getTime() || 0) - (new Date(a.timestamp).getTime() || 0);
+      });
+
+      cl.sort((a, b) => a.name.localeCompare(b.name));
+
+      receivedList = rx;
+      deliveredList = dx;
+      clientsList = cl;
     } catch (e) {
       console.error('Failed to load records:', e);
     }
@@ -243,7 +243,12 @@
     }));
 
     let logs = [...rx, ...dx];
-    logs.sort((a, b) => new Date(b.rawRecord.timestamp).getTime() - new Date(a.rawRecord.timestamp).getTime());
+    logs.sort((a, b) => {
+      if (a.date !== b.date) {
+        return b.date.localeCompare(a.date);
+      }
+      return (new Date(b.rawRecord.timestamp).getTime() || 0) - (new Date(a.rawRecord.timestamp).getTime() || 0);
+    });
 
     if (nameFilter.trim()) {
       const q = nameFilter.toLowerCase().trim();
@@ -268,16 +273,6 @@
       });
     }
 
-    if (diaFilter.trim()) {
-      const d = diaFilter.toLowerCase().trim();
-      logs = logs.filter((log) => {
-        const rec = log.rawRecord;
-        if ('dia' in rec && rec.dia && rec.dia.toLowerCase() === d) return true;
-        if (rec.items && rec.items.some((i) => 'dia' in i && (i as any).dia && (i as any).dia.toLowerCase() === d)) return true;
-        return false;
-      });
-    }
-
     if (dateFilter) {
       logs = logs.filter((log) => log.date === dateFilter);
     }
@@ -292,7 +287,7 @@
   // Reset displayedCount whenever filters change
   $effect(() => {
     // Access filter states to create reactivity dependency
-    nameFilter; challanFilter; yarnFilter; diaFilter; dateFilter; typeFilter;
+    nameFilter; challanFilter; yarnFilter; dateFilter; typeFilter;
     displayedCount = BATCH_SIZE;
   });
 
@@ -353,7 +348,6 @@
         ? rec.items
         : [{
             yarn_count: rec.yarn_count,
-            dia: 'dia' in rec ? rec.dia : undefined,
             bags: 'bags' in rec ? rec.bags : undefined,
             rolls: 'rolls' in rec ? rec.rolls : undefined,
             weight_kg: rec.weight_kg
@@ -367,7 +361,6 @@
           'Type': itemIdx === 0 ? log.type : '',
           'Challan': itemIdx === 0 ? (rec.ch_no || '-') : '',
           'Yarn Count': item.yarn_count || '-',
-          'Dia': 'dia' in item && (item as any).dia ? (item as any).dia : ('dia' in rec ? rec.dia : '-'),
           'Bags': 'bags' in item && item.bags !== undefined ? item.bags : ('bags' in rec ? rec.bags : '-'),
           'Rolls': 'rolls' in item && item.rolls !== undefined ? item.rolls : ('rolls' in rec ? rec.rolls : '-'),
           'Item Weight (Kg)': item.weight_kg,
@@ -468,21 +461,11 @@
       </div>
 
       <!-- Yarn Type Filter Text Input -->
-      <div class="md:col-span-2">
+      <div class="md:col-span-3">
         <Input
           type="text"
           placeholder="Filter by Yarn..."
           bind:value={yarnFilter}
-          class="h-8 text-xs bg-slate-50 dark:bg-neutral-800 border-none"
-        />
-      </div>
-
-      <!-- Dia Filter Text Input -->
-      <div class="md:col-span-1">
-        <Input
-          type="text"
-          placeholder="Dia..."
-          bind:value={diaFilter}
           class="h-8 text-xs bg-slate-50 dark:bg-neutral-800 border-none"
         />
       </div>
@@ -538,7 +521,6 @@
             nameFilter = '';
             challanFilter = '';
             yarnFilter = '';
-            diaFilter = '';
             dateFilter = '';
             typeFilter = 'all';
           }}
@@ -574,7 +556,7 @@
           <tbody class="divide-y divide-slate-100 dark:divide-neutral-800">
             {#each visibleAuditLogs as log}
               {@const rec = log.rawRecord}
-              {@const items = rec.items && rec.items.length > 0 ? rec.items : [{ yarn_count: rec.yarn_count, dia: 'dia' in rec ? rec.dia : undefined, bags: 'bags' in rec ? rec.bags : undefined, rolls: 'rolls' in rec ? rec.rolls : undefined, weight_kg: rec.weight_kg }]}
+              {@const items = rec.items && rec.items.length > 0 ? rec.items : [{ yarn_count: rec.yarn_count, bags: 'bags' in rec ? rec.bags : undefined, rolls: 'rolls' in rec ? rec.rolls : undefined, weight_kg: rec.weight_kg }]}
               <tr class="hover:bg-slate-50 dark:hover:bg-neutral-800/40 transition-colors">
                 <!-- Date & Time -->
                 <td class="p-3 align-top">
@@ -611,7 +593,6 @@
                     {#each items as item}
                       <div class="flex items-center gap-2 text-xs text-slate-700 dark:text-neutral-300">
                         <span class="font-semibold text-slate-900 dark:text-white">{item.yarn_count || '-'}</span>
-                        {#if 'dia' in item && item.dia}<span class="text-[10px] bg-slate-100 dark:bg-neutral-800 px-1.5 rounded font-semibold text-emerald-600 dark:text-emerald-400">Dia: {item.dia}</span>{/if}
                         {#if 'bags' in item && item.bags !== undefined}<span class="text-[11px] font-mono text-blue-600 dark:text-blue-400">{item.bags} Bags</span>{/if}
                         {#if 'rolls' in item && item.rolls !== undefined}<span class="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">{item.rolls} Rolls</span>{/if}
                         <span class="font-mono font-bold text-slate-800 dark:text-slate-200">({item.weight_kg} kg)</span>
@@ -914,7 +895,7 @@
 <Dialog open={selectedRecord !== null} onclose={closeDetailModal} title="Record Detail Log" maxWidth="max-w-lg">
   {#if selectedRecord}
     {@const rec = selectedRecord.rawRecord}
-    {@const items = rec.items && rec.items.length > 0 ? rec.items : [{ yarn_count: rec.yarn_count, dia: 'dia' in rec ? rec.dia : undefined, bags: 'bags' in rec ? rec.bags : undefined, rolls: 'rolls' in rec ? rec.rolls : undefined, weight_kg: rec.weight_kg }]}
+    {@const items = rec.items && rec.items.length > 0 ? rec.items : [{ yarn_count: rec.yarn_count, bags: 'bags' in rec ? rec.bags : undefined, rolls: 'rolls' in rec ? rec.rolls : undefined, weight_kg: rec.weight_kg }]}
     <div class="space-y-4 text-xs">
       <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-neutral-800">
         <div>
@@ -940,7 +921,6 @@
             <tr class="border-b border-slate-200 dark:border-neutral-700 text-slate-400 text-[10px] font-semibold">
               <th class="py-1">Yarn Count</th>
               {#if selectedRecord.type === 'Delivered'}
-                <th class="py-1">Dia</th>
                 <th class="py-1 text-center">Rolls</th>
               {:else}
                 <th class="py-1 text-center">Bags</th>
@@ -953,7 +933,6 @@
               <tr>
                 <td class="py-1.5 font-bold text-slate-800 dark:text-slate-200">{item.yarn_count}</td>
                 {#if selectedRecord.type === 'Delivered'}
-                  <td class="py-1.5 font-semibold text-emerald-600 dark:text-emerald-400">{'dia' in item ? item.dia : '-'}</td>
                   <td class="py-1.5 text-center font-mono font-semibold">{'rolls' in item ? item.rolls : '-'}</td>
                 {:else}
                   <td class="py-1.5 text-center font-mono font-semibold">{'bags' in item ? item.bags : '-'}</td>
@@ -964,7 +943,7 @@
           </tbody>
           <tfoot>
             <tr class="border-t-2 border-slate-300 dark:border-neutral-700 font-bold text-slate-900 dark:text-white">
-              <td colspan={selectedRecord.type === 'Delivered' ? 2 : 1} class="pt-2 text-right">Challan Total:</td>
+              <td class="pt-2 text-right">Challan Total:</td>
               <td class="pt-2 text-center font-mono">
                 {selectedRecord.type === 'Delivered' ? ('rolls' in rec ? rec.rolls : '-') : ('bags' in rec ? rec.bags : '-')}
               </td>
