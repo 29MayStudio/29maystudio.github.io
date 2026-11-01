@@ -135,7 +135,6 @@
 
   interface DxDraftItem {
     yarn_count: string;
-    dia: string;
     rolls: number | undefined;
     weight_kg: number | undefined;
   }
@@ -197,7 +196,7 @@
     dxDate = getTodayString();
     dxChNo = '';
     dxBalanceKg = undefined;
-    dxItems = [{ yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined }];
+    dxItems = [{ yarn_count: '', rolls: undefined, weight_kg: undefined }];
     isAddModalOpen = true;
   }
 
@@ -339,7 +338,7 @@
     date: string;
     ch_no: string;
     balance_kg?: number;
-    items: { yarn_count: string; dia: string; rolls: number | undefined; weight_kg: number | undefined }[];
+    items: { yarn_count: string; rolls: number | undefined; weight_kg: number | undefined }[];
   }>({
     open: false,
     date: '',
@@ -351,8 +350,8 @@
   function openEditDeliveredModal(record: DeliveredRecord) {
     if (!record.id) return;
     const items = record.items && record.items.length > 0
-      ? record.items.map(i => ({ yarn_count: i.yarn_count, dia: i.dia || '', rolls: i.rolls, weight_kg: i.weight_kg }))
-      : [{ yarn_count: record.yarn_count || '', dia: record.dia || '', rolls: record.rolls || 0, weight_kg: record.weight_kg || 0 }];
+      ? record.items.map(i => ({ yarn_count: i.yarn_count, rolls: i.rolls, weight_kg: i.weight_kg }))
+      : [{ yarn_count: record.yarn_count || '', rolls: record.rolls || 0, weight_kg: record.weight_kg || 0 }];
 
     editingDelivered = {
       open: true,
@@ -377,7 +376,6 @@
     const first = validItems[0];
     const itemsArray = validItems.map(i => ({
       yarn_count: i.yarn_count.trim() || '-',
-      dia: i.dia.trim() || '-',
       rolls: Number(i.rolls) || 0,
       weight_kg: Number(i.weight_kg)
     }));
@@ -391,7 +389,6 @@
         date: editingDelivered.date,
         ch_no: editingDelivered.ch_no.trim() || '-',
         yarn_count: first.yarn_count.trim() || '-',
-        dia: first.dia.trim() || '-',
         rolls: totalRollsSum,
         weight_kg: totalWeightSum,
         total_weight_kg: totalWeightSum,
@@ -407,7 +404,6 @@
         date: editingDelivered.date,
         ch_no: editingDelivered.ch_no.trim() || '-',
         yarn_count: first.yarn_count.trim() || '-',
-        dia: first.dia.trim() || '-',
         rolls: totalRollsSum,
         weight_kg: totalWeightSum,
         total_weight_kg: totalWeightSum,
@@ -427,7 +423,7 @@
   let dxChNo = $state('');
   let dxBalanceKg = $state<number | undefined>(undefined);
   let dxItems = $state<DxDraftItem[]>([
-    { yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined }
+    { yarn_count: '', rolls: undefined, weight_kg: undefined }
   ]);
 
   let dxTotalRolls = $derived(
@@ -539,7 +535,7 @@
   }
 
   function addDxDraftRow() {
-    dxItems.push({ yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined });
+    dxItems.push({ yarn_count: '', rolls: undefined, weight_kg: undefined });
   }
 
   function removeDxDraftRow(index: number) {
@@ -613,7 +609,6 @@
     const first = validItems[0];
     const itemsArray = validItems.map((i) => ({
       yarn_count: i.yarn_count.trim() || '-',
-      dia: i.dia.trim() || '-',
       rolls: i.rolls ? Number(i.rolls) : 0,
       weight_kg: Number(i.weight_kg)
     }));
@@ -624,7 +619,6 @@
       date: dxDate || getTodayString(),
       ch_no: dxChNo.trim() || '-',
       yarn_count: first.yarn_count.trim() || '-',
-      dia: first.dia.trim() || '-',
       rolls: totalRollsSum,
       weight_kg: totalWeightSum,
       total_weight_kg: totalWeightSum,
@@ -642,7 +636,7 @@
     // Reset inputs
     dxChNo = '';
     dxBalanceKg = undefined;
-    dxItems = [{ yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined }];
+    dxItems = [{ yarn_count: '', rolls: undefined, weight_kg: undefined }];
     isAddModalOpen = false;
 
     await loadClientRecords(selectedClient.id);
@@ -1146,7 +1140,6 @@
                   <th class="px-2.5 py-2 w-24">Date</th>
                   <th class="px-2.5 py-2">Challan</th>
                   <th class="px-2.5 py-2">Yarn Count</th>
-                  <th class="px-2.5 py-2 w-14">Dia</th>
                   <th class="px-2.5 py-2 w-16 text-center">Rolls</th>
                   <th class="px-2.5 py-2 w-24 text-right">Weight (Kg)</th>
                   <th class="px-2.5 py-2 w-24 text-right">Balance (Kg)</th>
@@ -1157,7 +1150,7 @@
               <tbody class="divide-y divide-slate-200 dark:divide-neutral-800 bg-white dark:bg-neutral-900">
                 {#if todayDeliveredList.length === 0}
                   <tr>
-                    <td colspan="8" class="p-8 text-center text-slate-400 text-sm italic">
+                    <td colspan="7" class="p-8 text-center text-slate-400 text-sm italic">
                       No delivered tally entries found for this client.
                     </td>
                   </tr>
@@ -1171,7 +1164,6 @@
                             <td rowspan={record.items.length} class="p-2 font-semibold text-xs align-top bg-slate-50/30 dark:bg-neutral-900/30">{record.ch_no}</td>
                           {/if}
                           <td class="p-2">{item.yarn_count}</td>
-                          <td class="p-2 font-semibold text-slate-700 dark:text-neutral-300">{item.dia}</td>
                           <td class="p-2 text-center font-mono">{item.rolls}</td>
                           <td class="p-2 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">{item.weight_kg}</td>
                           {#if itemIdx === 0}
@@ -1228,7 +1220,7 @@
                       <!-- Summary Row for Multi-Item Delivered Challan -->
                       {#if record.items.length > 1}
                         <tr class="bg-emerald-50/60 dark:bg-emerald-950/40 font-bold border-b-2 border-emerald-200 dark:border-emerald-900/50">
-                          <td colspan="4" class="p-1.5 text-right text-[11px] text-emerald-800 dark:text-emerald-300">
+                          <td colspan="3" class="p-1.5 text-right text-[11px] text-emerald-800 dark:text-emerald-300">
                             Challan Total:
                           </td>
                           <td class="p-1.5 text-center font-mono text-emerald-800 dark:text-emerald-300">{record.rolls}</td>
@@ -1243,7 +1235,6 @@
                         <td class="p-2 font-mono text-xs">{formatDateDMY(record.date)}</td>
                         <td class="p-2 font-semibold text-xs">{record.ch_no}</td>
                         <td class="p-2">{record.yarn_count}</td>
-                        <td class="p-2 font-semibold">{record.dia}</td>
                         <td class="p-2 text-center font-mono">{record.rolls}</td>
                         <td class="p-2 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">{record.weight_kg}</td>
                         <td class="p-2 text-right font-mono font-bold text-amber-700 dark:text-amber-400">{getDeliveredBalance(record)}</td>
@@ -1559,17 +1550,10 @@
                 />
 
                 <input
-                  type="text"
-                  bind:value={draftItem.dia}
-                  placeholder="Dia"
-                  class="w-20 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs font-semibold"
-                />
-
-                <input
                   type="number"
                   bind:value={draftItem.rolls}
                   placeholder="Rolls"
-                  class="w-16 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs text-center font-mono"
+                  class="w-20 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded-lg p-1.5 text-xs text-center font-mono"
                 />
 
                 <input
@@ -1577,7 +1561,7 @@
                   step="0.01"
                   bind:value={draftItem.weight_kg}
                   placeholder="Weight (Kg)"
-                  class="w-24 bg-white dark:bg-neutral-800 border-2 border-emerald-500 rounded-lg p-1.5 text-xs font-bold font-mono text-right"
+                  class="w-28 bg-white dark:bg-neutral-800 border-2 border-emerald-500 rounded-lg p-1.5 text-xs font-bold font-mono text-right"
                 />
 
                 {#if dxItems.length > 1}
@@ -1985,7 +1969,6 @@
               <th class="p-1 border-r border-neutral-300">Date</th>
               <th class="p-1 border-r border-neutral-300">Challan</th>
               <th class="p-1 border-r border-neutral-300">Yarn Count</th>
-              <th class="p-1 border-r border-neutral-300">Dia</th>
               <th class="p-1 border-r border-neutral-300 text-center">Rolls</th>
               <th class="p-1 text-right">Weight (Kg)</th>
             </tr>
@@ -1993,7 +1976,7 @@
           <tbody>
             {#if filteredStatementDelivered.length === 0}
               <tr>
-                <td colspan="6" class="p-3 text-center italic text-neutral-500">No delivered entries in selected period.</td>
+                <td colspan="5" class="p-3 text-center italic text-neutral-500">No delivered entries in selected period.</td>
               </tr>
             {:else}
               {#each filteredStatementDelivered as del}
@@ -2005,7 +1988,6 @@
                         <td rowspan={del.items.length} class="p-1 align-top font-semibold border-r border-neutral-300">{del.ch_no}</td>
                       {/if}
                       <td class="p-1 border-r border-neutral-300">{item.yarn_count}</td>
-                      <td class="p-1 border-r border-neutral-300 font-semibold">{item.dia}</td>
                       <td class="p-1 border-r border-neutral-300 text-center font-mono">{item.rolls}</td>
                       <td class="p-1 text-right font-mono font-bold">{item.weight_kg}</td>
                     </tr>
@@ -2015,7 +1997,6 @@
                     <td class="p-1 font-mono border-r border-neutral-300">{formatDateDMY(del.date)}</td>
                     <td class="p-1 font-semibold border-r border-neutral-300">{del.ch_no}</td>
                     <td class="p-1 border-r border-neutral-300">{del.yarn_count}</td>
-                    <td class="p-1 border-r border-neutral-300 font-semibold">{del.dia}</td>
                     <td class="p-1 border-r border-neutral-300 text-center font-mono">{del.rolls}</td>
                     <td class="p-1 text-right font-mono font-bold">{del.weight_kg}</td>
                   </tr>
@@ -2025,7 +2006,7 @@
           </tbody>
           <tfoot>
             <tr class="border-t-2 border-black font-bold bg-neutral-100">
-              <td colspan="4" class="p-1 text-right border-r border-neutral-300">Total:</td>
+              <td colspan="3" class="p-1 text-right border-r border-neutral-300">Total:</td>
               <td class="p-1 text-center font-mono border-r border-neutral-300">{statementDxTotalRolls}</td>
               <td class="p-1 text-right font-mono">{statementDxTotalWeight} Kg</td>
             </tr>
@@ -2083,7 +2064,7 @@
         <span>Yarn Items</span>
         <button
           type="button"
-          onclick={() => editingDelivered.items.push({ yarn_count: '', dia: '', rolls: undefined, weight_kg: undefined })}
+          onclick={() => editingDelivered.items.push({ yarn_count: '', rolls: undefined, weight_kg: undefined })}
           class="text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1 cursor-pointer"
         >
           <Plus class="w-3.5 h-3.5" /> Add Row
@@ -2100,17 +2081,10 @@
           />
 
           <input
-            type="text"
-            bind:value={item.dia}
-            placeholder="Dia"
-            class="w-16 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded p-1.5 text-xs font-semibold"
-          />
-
-          <input
             type="number"
             bind:value={item.rolls}
             placeholder="Rolls"
-            class="w-14 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded p-1.5 text-xs text-center"
+            class="w-16 bg-white dark:bg-neutral-800 border border-slate-300 dark:border-neutral-700 rounded p-1.5 text-xs text-center font-mono"
           />
 
           <input
@@ -2118,7 +2092,7 @@
             step="0.01"
             bind:value={item.weight_kg}
             placeholder="Kg"
-            class="w-20 bg-white dark:bg-neutral-800 border border-emerald-500 rounded p-1.5 text-xs font-bold text-right"
+            class="w-24 bg-white dark:bg-neutral-800 border border-emerald-500 rounded p-1.5 text-xs font-bold text-right font-mono"
           />
 
           {#if editingDelivered.items.length > 1}

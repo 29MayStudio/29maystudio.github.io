@@ -272,7 +272,6 @@ async function getSqliteDB(): Promise<Database> {
         ch_no TEXT,
         yarn_count TEXT,
         lot TEXT,
-        dia TEXT,
         rolls REAL,
         weight_kg REAL,
         total_weight_kg REAL,

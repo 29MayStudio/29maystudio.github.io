@@ -26,7 +26,7 @@ export interface ReceivedYarnItem {
 
 export interface DeliveredYarnItem {
   yarn_count: string;
-  dia: string;
+  dia?: string;
   rolls: number;
   weight_kg: number;
 }
@@ -53,7 +53,7 @@ export interface DeliveredRecord {
   date: string; // YYYY-MM-DD
   ch_no: string; // Challan Number
   yarn_count: string;
-  dia: string; // autofill suggest from added data
+  dia?: string;
   rolls: number;
   weight_kg: number; // Weight in Kg
   total_weight_kg: number; // Total weight in Kg
