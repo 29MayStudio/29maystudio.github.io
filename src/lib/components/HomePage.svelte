@@ -2,10 +2,7 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import {
-    db,
     dbAdapter,
-    isTauri,
-    seedInitialData,
     type Client,
     type ReceivedRecord,
     type DeliveredRecord
@@ -224,17 +221,9 @@
       onConfirm: async () => {
         confirmModal.open = false;
         if (type === 'received') {
-          if (isTauri()) {
-            await dbAdapter.deleteReceivedRecord(id);
-          } else {
-            await db.receivedRecords.delete(id);
-          }
+          await dbAdapter.deleteReceivedRecord(id);
         } else {
-          if (isTauri()) {
-            await dbAdapter.deleteDeliveredRecord(id);
-          } else {
-            await db.deliveredRecords.delete(id);
-          }
+          await dbAdapter.deleteDeliveredRecord(id);
         }
         if (selectedClient?.id) {
           await loadClientRecords(selectedClient.id);
@@ -297,34 +286,16 @@
       ? Number(editingReceived.balance_kg)
       : undefined;
 
-    if (isTauri()) {
-      await dbAdapter.updateReceivedRecord(editingReceived.id, {
-        date: editingReceived.date,
-        ch_no: editingReceived.ch_no.trim() || '-',
-        yarn_count: first.yarn_count.trim() || '-',
-        bags: totalBagsSum,
-        weight_kg: totalWeightSum,
-        total_weight_kg: totalWeightSum,
-        balance_kg: balanceVal
-      });
-    } else {
-      const existing = await db.receivedRecords.get(editingReceived.id);
-      await db.receivedRecords.put({
-        ...existing,
-        id: editingReceived.id,
-        client_id: selectedClient.id,
-        client_name: selectedClient.name,
-        date: editingReceived.date,
-        ch_no: editingReceived.ch_no.trim() || '-',
-        yarn_count: first.yarn_count.trim() || '-',
-        bags: totalBagsSum,
-        weight_kg: totalWeightSum,
-        total_weight_kg: totalWeightSum,
-        balance_kg: balanceVal,
-        items: itemsArray,
-        timestamp: existing?.timestamp || new Date().toISOString()
-      });
-    }
+    await dbAdapter.updateReceivedRecord(editingReceived.id, {
+      date: editingReceived.date,
+      ch_no: editingReceived.ch_no.trim() || '-',
+      yarn_count: first.yarn_count.trim() || '-',
+      bags: totalBagsSum,
+      weight_kg: totalWeightSum,
+      total_weight_kg: totalWeightSum,
+      balance_kg: balanceVal,
+      items: itemsArray
+    });
 
     editingReceived.open = false;
     await loadClientRecords(selectedClient.id);
@@ -384,34 +355,16 @@
       ? Number(editingDelivered.balance_kg)
       : undefined;
 
-    if (isTauri()) {
-      await dbAdapter.updateDeliveredRecord(editingDelivered.id, {
-        date: editingDelivered.date,
-        ch_no: editingDelivered.ch_no.trim() || '-',
-        yarn_count: first.yarn_count.trim() || '-',
-        rolls: totalRollsSum,
-        weight_kg: totalWeightSum,
-        total_weight_kg: totalWeightSum,
-        balance_kg: balanceVal
-      });
-    } else {
-      const existing = await db.deliveredRecords.get(editingDelivered.id);
-      await db.deliveredRecords.put({
-        ...existing,
-        id: editingDelivered.id,
-        client_id: selectedClient.id,
-        client_name: selectedClient.name,
-        date: editingDelivered.date,
-        ch_no: editingDelivered.ch_no.trim() || '-',
-        yarn_count: first.yarn_count.trim() || '-',
-        rolls: totalRollsSum,
-        weight_kg: totalWeightSum,
-        total_weight_kg: totalWeightSum,
-        balance_kg: balanceVal,
-        items: itemsArray,
-        timestamp: existing?.timestamp || new Date().toISOString()
-      });
-    }
+    await dbAdapter.updateDeliveredRecord(editingDelivered.id, {
+      date: editingDelivered.date,
+      ch_no: editingDelivered.ch_no.trim() || '-',
+      yarn_count: first.yarn_count.trim() || '-',
+      rolls: totalRollsSum,
+      weight_kg: totalWeightSum,
+      total_weight_kg: totalWeightSum,
+      balance_kg: balanceVal,
+      items: itemsArray
+    });
 
     editingDelivered.open = false;
     await loadClientRecords(selectedClient.id);
@@ -438,7 +391,7 @@
   );
 
   onMount(() => {
-    seedInitialData().then(() => loadBaseData());
+    dbAdapter.seedInitialData().then(() => loadBaseData());
 
     // Listen for database updates from other screens
     const handleDbUpdate = async () => {
@@ -453,7 +406,7 @@
   });
 
   async function loadBaseData() {
-    allClients = await db.clients.orderBy('name').toArray();
+    allClients = await dbAdapter.getAllClients();
   }
 
   async function selectClient(client: Client) {
@@ -487,23 +440,8 @@
 
   async function loadClientRecords(clientId: number) {
     // Sort primarily by date ascending (oldest date on top, newest date on bottom), then by timestamp ascending
-    let rx: ReceivedRecord[] = [];
-    let dx: DeliveredRecord[] = [];
-
-    if (isTauri()) {
-      rx = await dbAdapter.getReceivedRecords(clientId);
-      dx = await dbAdapter.getDeliveredRecords(clientId);
-    } else {
-      rx = await db.receivedRecords
-        .where('client_id')
-        .equals(clientId)
-        .toArray();
-
-      dx = await db.deliveredRecords
-        .where('client_id')
-        .equals(clientId)
-        .toArray();
-    }
+    const rx = await dbAdapter.getReceivedRecords(clientId);
+    const dx = await dbAdapter.getDeliveredRecords(clientId);
 
     rx.sort((a, b) => {
       if (a.date !== b.date) {
@@ -578,11 +516,7 @@
       timestamp: new Date().toISOString()
     };
 
-    if (isTauri()) {
-      await dbAdapter.addReceivedRecord(newRecord);
-    } else {
-      await db.receivedRecords.add(newRecord);
-    }
+    await dbAdapter.addReceivedRecord(newRecord);
 
     // Reset inputs
     rxChNo = '';
@@ -627,11 +561,7 @@
       timestamp: new Date().toISOString()
     };
 
-    if (isTauri()) {
-      await dbAdapter.addDeliveredRecord(newRecord);
-    } else {
-      await db.deliveredRecords.add(newRecord);
-    }
+    await dbAdapter.addDeliveredRecord(newRecord);
 
     // Reset inputs
     dxChNo = '';

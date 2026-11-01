@@ -105,9 +105,101 @@ export const dbAdapter = {
   async getAllClients(): Promise<Client[]> {
     if (isTauri()) {
       const s = await getSqliteDB();
-      return await s.select<Client[]>('SELECT * FROM clients ORDER BY name ASC');
+      let sqliteClients = await s.select<Client[]>('SELECT * FROM clients ORDER BY name ASC');
+
+      // Auto-migrate/sync: If Dexie has clients, check if any need to be imported into SQLite
+      try {
+        const dexieClients = await dexieInstance.clients.toArray();
+        if (dexieClients.length > 0) {
+          const existingNames = new Set(sqliteClients.map((c) => c.name.toLowerCase().trim()));
+          let newlyAdded = false;
+
+          for (const dc of dexieClients) {
+            const cleanName = (dc.name || '').trim();
+            if (cleanName && !existingNames.has(cleanName.toLowerCase())) {
+              await s.execute(
+                'INSERT INTO clients (name, phone, address, created_at) VALUES ($1, $2, $3, $4)',
+                [cleanName, dc.phone || '', dc.address || '', dc.created_at || new Date().toISOString()]
+              );
+              existingNames.add(cleanName.toLowerCase());
+              newlyAdded = true;
+            }
+          }
+
+          if (newlyAdded) {
+            sqliteClients = await s.select<Client[]>('SELECT * FROM clients ORDER BY name ASC');
+          }
+        }
+      } catch (e) {
+        console.warn('Sync from IndexedDB to SQLite encountered an issue:', e);
+      }
+
+      // Auto-recover clients from received/delivered records if any client is missing in clients table
+      try {
+        const distinctRx = await s.select<{ client_id: number; client_name: string }[]>(
+          'SELECT DISTINCT client_id, client_name FROM received_records WHERE client_name IS NOT NULL AND client_name != ""'
+        );
+        const distinctDx = await s.select<{ client_id: number; client_name: string }[]>(
+          'SELECT DISTINCT client_id, client_name FROM delivered_records WHERE client_name IS NOT NULL AND client_name != ""'
+        );
+
+        const existingNames = new Set(sqliteClients.map((c) => c.name.toLowerCase().trim()));
+        let recovered = false;
+
+        for (const r of [...distinctRx, ...distinctDx]) {
+          const cleanName = (r.client_name || '').trim();
+          if (cleanName && !existingNames.has(cleanName.toLowerCase())) {
+            await s.execute(
+              'INSERT INTO clients (name, phone, address, created_at) VALUES ($1, $2, $3, $4)',
+              [cleanName, '', '', new Date().toISOString()]
+            );
+            existingNames.add(cleanName.toLowerCase());
+            recovered = true;
+          }
+        }
+
+        if (recovered) {
+          sqliteClients = await s.select<Client[]>('SELECT * FROM clients ORDER BY name ASC');
+        }
+      } catch (e) {
+        console.warn('Auto-recovery of clients from records encountered an issue:', e);
+      }
+
+      return sqliteClients;
     }
-    return await dexieInstance.clients.toArray();
+
+    // Web / Dexie mode
+    let clients = await dexieInstance.clients.toArray();
+
+    // Auto-recover from records in Dexie if missing
+    try {
+      const rx = await dexieInstance.receivedRecords.toArray();
+      const dx = await dexieInstance.deliveredRecords.toArray();
+      const existingNames = new Set(clients.map((c) => c.name.toLowerCase().trim()));
+      let recovered = false;
+
+      for (const r of [...rx, ...dx]) {
+        const cleanName = (r.client_name || '').trim();
+        if (cleanName && !existingNames.has(cleanName.toLowerCase())) {
+          await dexieInstance.clients.add({
+            name: cleanName,
+            phone: '',
+            address: '',
+            created_at: new Date().toISOString()
+          });
+          existingNames.add(cleanName.toLowerCase());
+          recovered = true;
+        }
+      }
+
+      if (recovered) {
+        clients = await dexieInstance.clients.toArray();
+      }
+    } catch (e) {
+      console.warn('Dexie client auto-recovery encountered an issue:', e);
+    }
+
+    return clients;
   },
 
   async addClient(client: Omit<Client, 'id'>): Promise<number> {
