@@ -217,17 +217,26 @@ export const dbAdapter = {
   async updateClient(id: number, client: Partial<Client>): Promise<void> {
     if (isTauri()) {
       const s = await getSqliteDB();
-      await s.execute(
-        `UPDATE clients
-         SET name = COALESCE($1, name),
-             phone = COALESCE($2, phone),
-             address = COALESCE($3, address)
-         WHERE id = $4`,
-        [client.name, client.phone, client.address, id]
-      );
-      if (client.name) {
-        await s.execute('UPDATE received_records SET client_name = $1 WHERE client_id = $2', [client.name, id]);
-        await s.execute('UPDATE delivered_records SET client_name = $1 WHERE client_id = $2', [client.name, id]);
+      // Use clean defined checks so setting empty address/phone works
+      const existing = await s.select<Client[]>('SELECT * FROM clients WHERE id = $1', [id]);
+      if (existing.length > 0) {
+        const cur = existing[0];
+        const newName = client.name !== undefined ? client.name : cur.name;
+        const newPhone = client.phone !== undefined ? (client.phone || '') : (cur.phone || '');
+        const newAddress = client.address !== undefined ? (client.address || '') : (cur.address || '');
+
+        await s.execute(
+          `UPDATE clients
+           SET name = $1,
+               phone = $2,
+               address = $3
+           WHERE id = $4`,
+          [newName, newPhone, newAddress, id]
+        );
+        if (newName && newName !== cur.name) {
+          await s.execute('UPDATE received_records SET client_name = $1 WHERE client_id = $2', [newName, id]);
+          await s.execute('UPDATE delivered_records SET client_name = $1 WHERE client_id = $2', [newName, id]);
+        }
       }
       return;
     }
@@ -307,6 +316,7 @@ export const dbAdapter = {
   async updateReceivedRecord(id: number, record: Partial<ReceivedRecord>): Promise<void> {
     if (isTauri()) {
       const s = await getSqliteDB();
+      const itemsJson = record.items !== undefined ? JSON.stringify(record.items || []) : null;
       await s.execute(
         `UPDATE received_records
          SET date = COALESCE($1, date),
@@ -315,16 +325,18 @@ export const dbAdapter = {
              bags = COALESCE($4, bags),
              weight_kg = COALESCE($5, weight_kg),
              total_weight_kg = COALESCE($6, total_weight_kg),
-             balance_kg = COALESCE($7, balance_kg)
-         WHERE id = $8`,
+             balance_kg = CASE WHEN $7 IS NOT NULL THEN $7 ELSE balance_kg END,
+             items = COALESCE($8, items)
+         WHERE id = $9`,
         [
-          record.date,
-          record.ch_no,
-          record.yarn_count,
-          record.bags,
-          record.weight_kg,
-          record.total_weight_kg,
-          record.balance_kg,
+          record.date ?? null,
+          record.ch_no ?? null,
+          record.yarn_count ?? null,
+          record.bags ?? null,
+          record.weight_kg ?? null,
+          record.total_weight_kg ?? null,
+          record.balance_kg ?? null,
+          itemsJson,
           id
         ]
       );
@@ -379,6 +391,7 @@ export const dbAdapter = {
   async updateDeliveredRecord(id: number, record: Partial<DeliveredRecord>): Promise<void> {
     if (isTauri()) {
       const s = await getSqliteDB();
+      const itemsJson = record.items !== undefined ? JSON.stringify(record.items || []) : null;
       await s.execute(
         `UPDATE delivered_records
          SET date = COALESCE($1, date),
@@ -387,16 +400,18 @@ export const dbAdapter = {
              rolls = COALESCE($4, rolls),
              weight_kg = COALESCE($5, weight_kg),
              total_weight_kg = COALESCE($6, total_weight_kg),
-             balance_kg = COALESCE($7, balance_kg)
-         WHERE id = $8`,
+             balance_kg = CASE WHEN $7 IS NOT NULL THEN $7 ELSE balance_kg END,
+             items = COALESCE($8, items)
+         WHERE id = $9`,
         [
-          record.date,
-          record.ch_no,
-          record.yarn_count,
-          record.rolls,
-          record.weight_kg,
-          record.total_weight_kg,
-          record.balance_kg,
+          record.date ?? null,
+          record.ch_no ?? null,
+          record.yarn_count ?? null,
+          record.rolls ?? null,
+          record.weight_kg ?? null,
+          record.total_weight_kg ?? null,
+          record.balance_kg ?? null,
+          itemsJson,
           id
         ]
       );

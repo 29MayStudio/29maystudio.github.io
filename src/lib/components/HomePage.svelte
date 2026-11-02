@@ -482,6 +482,44 @@
     }
   }
 
+  function handleAddModalEnter(e: KeyboardEvent, formContainer: HTMLElement | null) {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    const target = e.target as HTMLElement;
+    if (!target || !formContainer) return;
+    if (target.tagName !== 'INPUT') return;
+
+    // Get all enabled visible input fields inside the current form
+    const inputs = Array.from(
+      formContainer.querySelectorAll<HTMLInputElement>('input:not([type="hidden"]):not([tabindex="-1"]):not([disabled])')
+    ).filter(el => el.offsetParent !== null);
+
+    const currentIndex = inputs.indexOf(target as HTMLInputElement);
+    if (currentIndex !== -1) {
+      e.preventDefault();
+      if (currentIndex < inputs.length - 1) {
+        inputs[currentIndex + 1].focus();
+      } else {
+        // If at the last input (usually the last weight field in yarn items)
+        if (addEntryMode === 'received') {
+          addRxDraftRow();
+        } else {
+          addDxDraftRow();
+        }
+        setTimeout(() => {
+          const updatedInputs = Array.from(
+            formContainer.querySelectorAll<HTMLInputElement>('input:not([type="hidden"]):not([tabindex="-1"]):not([disabled])')
+          ).filter(el => el.offsetParent !== null);
+          if (updatedInputs.length > inputs.length) {
+            updatedInputs[inputs.length].focus();
+          }
+        }, 30);
+      }
+    }
+  }
+
+  let rxFormContainer = $state<HTMLElement | null>(null);
+  let dxFormContainer = $state<HTMLElement | null>(null);
+
   // Add Received Record
   async function addReceivedRow() {
     if (!selectedClient?.id) return;
@@ -1320,7 +1358,13 @@
 
     {#if addEntryMode === 'received'}
       <!-- RECEIVED FORM -->
-      <div class="space-y-3">
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <form
+        bind:this={rxFormContainer}
+        onsubmit={(e) => e.preventDefault()}
+        onkeydown={(e) => handleAddModalEnter(e, rxFormContainer)}
+        class="space-y-3"
+      >
         <!-- Date, CH No & Balance -->
         <div class="grid grid-cols-3 gap-3">
           <div>
@@ -1424,11 +1468,17 @@
             <Plus class="w-4 h-4" /> Save Received Entry
           </button>
         </div>
-      </div>
+      </form>
 
     {:else}
       <!-- DELIVERED FORM -->
-      <div class="space-y-3">
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <form
+        bind:this={dxFormContainer}
+        onsubmit={(e) => e.preventDefault()}
+        onkeydown={(e) => handleAddModalEnter(e, dxFormContainer)}
+        class="space-y-3"
+      >
         <!-- Date, CH No & Balance -->
         <div class="grid grid-cols-3 gap-3">
           <div>
@@ -1532,7 +1582,7 @@
             <Plus class="w-4 h-4" /> Save Delivered Entry
           </button>
         </div>
-      </div>
+      </form>
     {/if}
   </div>
 </Dialog>
@@ -1798,10 +1848,10 @@
       <h1 class="text-3xl font-extrabold tracking-tight text-black m-0 leading-tight uppercase">
         M/S A.B.S Knit Fabrics
       </h1>
-      <div class="text-[11px] font-semibold text-neutral-800 tracking-wide uppercase">
+      <div class="text-xs font-semibold text-neutral-800 tracking-wide uppercase">
         100% Export Oriented Knitting Factory
       </div>
-      <div class="text-[9px] text-neutral-600 font-normal">
+      <div class="text-[10px] text-neutral-600 font-normal">
         Plot Number B-7, Bscic I/A, Fatullah, Narayanganj. Mobile: 01681068707
       </div>
     </div>
@@ -1812,10 +1862,10 @@
         <tr>
           <th class="font-normal text-left p-0 pb-1">
             <div class="statement-print-header w-full">
-              <div class="border-b border-black pb-1 flex items-baseline justify-between text-xs">
+              <div class="border-b border-black pb-1 flex items-baseline justify-between text-sm">
                 <div>
-                  <span class="text-[9px] uppercase tracking-wider text-neutral-600 block font-semibold">Client Statement</span>
-                  <h2 class="text-base font-bold text-black m-0 leading-tight">{selectedClient.name}</h2>
+                  <span class="text-[10px] uppercase tracking-wider text-neutral-600 block font-semibold">Client Statement</span>
+                  <h2 class="text-lg font-bold text-black m-0 leading-tight">{selectedClient.name}</h2>
                 </div>
                 <div class="text-right text-xs text-black font-mono">
                   <div><span class="font-bold">Date Range:</span> {formatDateDMY(statementStartDate)} &mdash; {formatDateDMY(statementEndDate)}</div>
@@ -1830,14 +1880,14 @@
         <tr>
           <td class="p-0 align-top">
             <!-- Dual Side-By-Side Tally Charts in Landscape -->
-            <div class="grid grid-cols-2 gap-3 text-xs pt-1">
+            <div class="grid grid-cols-2 gap-3 text-sm pt-1">
 
       <!-- LEFT: RECEIVED TALLY CHART -->
       <div class="border border-black p-1.5">
-        <div class="font-bold border-b border-black pb-1 mb-1 text-center text-xs tracking-wide uppercase bg-neutral-100">
+        <div class="font-bold border-b border-black pb-1 mb-1 text-center text-sm tracking-wide uppercase bg-neutral-100">
           Received Tally
         </div>
-        <table class="w-full text-left border-collapse text-[10px]">
+        <table class="w-full text-left border-collapse text-[11.5px]">
           <thead>
             <tr class="border-b border-black font-bold bg-neutral-50">
               <th class="p-1 border-r border-neutral-300">Date</th>
@@ -1890,10 +1940,10 @@
 
       <!-- RIGHT: DELIVERED TALLY CHART -->
       <div class="border border-black p-1.5">
-        <div class="font-bold border-b border-black pb-1 mb-1 text-center text-xs tracking-wide uppercase bg-neutral-100">
+        <div class="font-bold border-b border-black pb-1 mb-1 text-center text-sm tracking-wide uppercase bg-neutral-100">
           Delivered Tally
         </div>
-        <table class="w-full text-left border-collapse text-[10px]">
+        <table class="w-full text-left border-collapse text-[11.5px]">
           <thead>
             <tr class="border-b border-black font-bold bg-neutral-50">
               <th class="p-1 border-r border-neutral-300">Date</th>

@@ -8,6 +8,7 @@
     required?: boolean;
     disabled?: boolean;
     placeholder?: string;
+    onkeydown?: (e: KeyboardEvent) => void;
   }
 
   let {
@@ -16,7 +17,8 @@
     class: customClass = '',
     required = false,
     disabled = false,
-    placeholder = 'dd/mm/yyyy'
+    placeholder = 'dd/mm/yyyy',
+    onkeydown
   }: Props = $props();
 
   let nativeDateInput = $state<HTMLInputElement | null>(null);
@@ -110,6 +112,7 @@
     bind:value={textValue}
     oninput={handleTextInput}
     onblur={handleBlur}
+    {onkeydown}
     {placeholder}
     {required}
     {disabled}
