@@ -268,8 +268,8 @@
       const y = yarnFilter.toLowerCase().trim();
       logs = logs.filter((log) => {
         const rec = log.rawRecord;
-        if (rec.yarn_count && rec.yarn_count.toLowerCase() === y) return true;
-        if (rec.items && rec.items.some((i) => i.yarn_count.toLowerCase() === y)) return true;
+        if (rec.yarn_count && rec.yarn_count.toLowerCase().includes(y)) return true;
+        if (rec.items && rec.items.some((i) => i.yarn_count && i.yarn_count.toLowerCase().includes(y))) return true;
         return false;
       });
     }

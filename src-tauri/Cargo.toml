@@ -1,6 +1,6 @@
 [package]
 name = "abs-knit-fabrics"
-version = "1.0.0"
+version = "2.0.0"
 description = "M/S A.B.S Knit Fabrics Data Management System"
 authors = ["you"]
 edition = "2021"

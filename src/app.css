@@ -165,7 +165,7 @@ h1, h2, h3, h4, h5, h6 {
   html, body {
     background: white !important;
     color: black !important;
-    font-size: 9pt !important;
+    font-size: 10.5pt !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
