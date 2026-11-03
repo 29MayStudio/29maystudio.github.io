@@ -48,17 +48,9 @@
 }
 
 @font-face {
-  font-family: 'SolaimanLipi';
-  src: url('/SolaimanLipi.ttf') format('truetype');
+  font-family: 'Oxford';
+  src: url('/Oxford.ttf') format('truetype');
   font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SolaimanLipi';
-  src: url('/SolaimanLipi_Bold.ttf') format('truetype');
-  font-weight: bold;
   font-style: normal;
   font-display: swap;
 }
@@ -72,8 +64,8 @@
 }
 
 @theme {
-  --font-sans: 'SolaimanLipi', sans-serif;
-  --font-mono: 'SolaimanLipi', sans-serif;
+  --font-sans: 'Oxford', sans-serif;
+  --font-mono: 'Oxford', sans-serif;
 }
 
 html {
@@ -84,17 +76,17 @@ html {
   body, input, select, textarea {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: 'SolaimanLipi', sans-serif;
+    font-family: 'Oxford', sans-serif;
   }
 
   button {
     color: var(--foreground);
-    font-family: 'SolaimanLipi', sans-serif;
+    font-family: 'Oxford', sans-serif;
   }
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'FairytaleSerifRoyalFashionBeauty', 'SolaimanLipi', serif;
+  font-family: 'FairytaleSerifRoyalFashionBeauty', 'Oxford', serif;
   font-weight: normal;
   letter-spacing: 0.02em;
 }
@@ -150,7 +142,7 @@ h1, h2, h3, h4, h5, h6 {
     @bottom-right {
       content: "Page " counter(page) " of " counter(pages);
       font-size: 8pt;
-      font-family: 'SolaimanLipi', sans-serif;
+      font-family: 'Oxford', sans-serif;
       color: #000;
     }
   }

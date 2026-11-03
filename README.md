@@ -37,7 +37,7 @@ Built with **Svelte 5**, **TypeScript**, **Tailwind CSS v4**, and **Dexie Indexe
 - **Database**: [Dexie.js](https://dexie.org) (IndexedDB wrapper for local browser storage)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com)
 - **Icons**: [Lucide Svelte](https://lucide.dev)
-- **Typography**: Custom `SolaimanLipi` font family
+- **Typography**: Custom `Oxford` font family
 
 ---
 
