@@ -7,7 +7,7 @@
 
 ### Stack
 - **Framework**: Svelte 5 (`runes` reactive syntax like `$state`, `$derived`, `$effect`, snippets, snippet props)
-- **Styling**: Tailwind CSS v4 with custom font (`SolaimanLipi`) and dark mode theme (AMOLED pure black)
+- **Styling**: Tailwind CSS v4 with custom font (`Oxford`) and dark mode theme (AMOLED pure black)
 - **Local Database**: IndexedDB managed via `Dexie` (`src/lib/db.ts`)
 - **Icons**: `@lucide/svelte`
 
